@@ -12,4 +12,4 @@ def main(path: str, legacy_controller: bool = False):
     Executor(entity).create_dto(legacy_controller=legacy_controller)
 
 #if __name__ == "__main__":
-    #main('/home/alex/Documents/RiderProjects/SystemsRegistryCore/Domain/Entities/Reference/TestReference.cs')
+    #main('/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks/Domain/Entities/Reports/AppealContract.cs')

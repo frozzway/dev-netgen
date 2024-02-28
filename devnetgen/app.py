@@ -130,7 +130,7 @@ class NamespaceCollection(Set):
 class FileClass:
     def __init__(self, path: Union[str, Path], factory_property=None):
         self.factory_property = factory_property
-        self.file_text = None
+        self.file_text = ''
         self.file_lines = None
         self.solution_name = None
         self.namespace = None
@@ -293,6 +293,11 @@ class FileClass:
         for file in self.included_files:
             file._recursive_create_templates(target_namespace, template, for_update, storage)
 
+    def clear_summaries_flags(self):
+        cleaned_text = self.file_text.replace('<summary>!', '<summary>').replace('<summary>@', '<summary>')
+        with open(self.file_path, 'w', encoding='utf-8') as file:
+            file.write(cleaned_text)
+
 
 class Executor:
     def __init__(self, obj: FileClass):
@@ -321,6 +326,7 @@ class Executor:
         self._calculate_namespaces()
         self._create_template_files()
         self._write_controller(legacy_controller)
+        self.cleanup_files()
 
     def _calculate_namespaces(self):
         controller_path = next(self.entity.solution_path.glob('**/Controllers'))
@@ -477,3 +483,8 @@ class Executor:
             file.write(output)
 
         self.add_to_git(self.target_webui_namespace.path)
+
+    def cleanup_files(self):
+        self.entity.clear_summaries_flags()
+        for file in self.entity.included_files:
+            file.clear_summaries_flags()
