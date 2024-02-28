@@ -14,7 +14,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from devnetgen.pluralize import pluralize
 
 env = Environment(
-    loader=PackageLoader('dev-netgen'),
+    loader=PackageLoader('devnetgen'),
     autoescape=select_autoescape(),
     lstrip_blocks=True,
     trim_blocks=True
