@@ -1,4 +1,3 @@
-using {{ mediator_lib }};
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 {% if sieve %}
@@ -40,8 +39,8 @@ public class {{ file.class_name }}Controller : ApiMediatorController
     /// Метод редактирования сущности "{{ file.class_summary }}"
     /// </summary>
     /// <param name="dto">Объект передачи данных</param>
-    [HttpPost]
-    public async Task<Unit> Update([FromBody] UpdateDto dto)
+    [HttpPut]
+    public async Task Update([FromBody] UpdateDto dto)
         => await Mediator.Send(new {{ update_namespace.last_name_part }}Command { Dto = dto });
 
     /// <summary>
@@ -49,7 +48,7 @@ public class {{ file.class_name }}Controller : ApiMediatorController
     /// </summary>
     /// <param name="id">Идентификатор сущности</param>
     [HttpDelete]
-    public async Task<Unit> Delete(long id)
+    public async Task Delete(long id)
         => await Mediator.Send(new {{ delete_namespace.last_name_part }}Command { Id = id });
 
     /// <summary>
