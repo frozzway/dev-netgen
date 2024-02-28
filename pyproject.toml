@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "dev-netgen"
+name = "devnetgen"
 version = "0.1.0"
 description = ""
 authors = ["Александр Окунев <a.okunev@mininform74.ru>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-dev-netgen = "netgen.main:app"
+dev-netgen = "devnetgen.main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
