@@ -1,0 +1,49 @@
+{% set command_name = 'Get' + file.class_name + 'Query' %}
+{% set command_handler = command_name + 'Handler' %}
+{% set Vm = file.class_name + 'Vm' %}
+using System.Threading;
+using System.Threading.Tasks;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using {{ mediator_lib }};
+using {{ file.solution_name }}.Application.Common.Interfaces;
+using {{ file.solution_name }}.Application.Common.Extensions;
+using {{ file.solution_name }}.Application.Common.Exceptions;
+using {{ file.namespace.name }};
+
+namespace {{ target_namespace }};
+
+/// <summary>
+/// Запрос на получение сущности "{{ file.class_summary }}"
+/// </summary>
+public class {{ command_name }} : IRequest<{{ Vm }}>
+{
+    /// <summary>
+    /// Идентификатор
+    /// </summary>
+    public long Id { get; set; }
+}
+
+public class {{ command_handler }} : IRequestHandler<{{ command_name }}, {{ Vm }}>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly IMapper _mapper;
+
+    public {{ command_handler }}(IApplicationDbContext context, IMapper mapper)
+    {
+        _context = context;
+        _mapper = mapper;
+    }
+
+    public async {{ return_value }}<{{ Vm }}> Handle({{ command_name }} request, CancellationToken cancellationToken)
+    {
+        var entity = await _context.{{ file.pluralized_class_name }}
+            .ProjectTo<{{ Vm }}>(_mapper.ConfigurationProvider)
+            .FindByIdAsync(request.Id, cancellationToken);
+
+        if (entity is null)
+            throw new NotFoundException(nameof({{ file.class_name }}), request.Id);
+
+        return entity;
+    }
+}

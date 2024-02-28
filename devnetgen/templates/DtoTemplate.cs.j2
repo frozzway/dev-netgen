@@ -1,0 +1,43 @@
+{% for namespace in file.required_system_namespaces %}
+using {{ namespace.name }};
+{% endfor %}
+using {{ file.solution_name }}.Application.Common.Mappings;
+{% for namespace in file.required_solution_namespaces %}
+using {{ namespace.name }};
+{% endfor %}
+
+namespace {{ target_namespace }};
+
+/// <summary>
+/// Объект передачи данных для {% if for_update %}редактирования{% else %}создания{% endif %} сущности "{{ file.class_summary }}"
+/// </summary>
+public class {{ file.class_name }}Dto : IMapTo<{{ file.class_name }}>
+{
+    {% if for_update %}
+    /// <summary>
+    /// Идентификатор
+    /// </summary>
+    public long Id { get; set; }
+
+    {% endif %}
+{% for p in file.properties %}
+    {% if loop.index >= 2 %}
+
+    {% endif %}
+    {% if p.is_navigation %}
+    /// <summary>
+    /// {{ p.summary }}
+    /// </summary>
+    {% if p.is_list_generic %}
+    public List<{{ p.prop_type }}Dto> {{ p.name }} { get; set; } = new();
+    {% else %}
+    public {{ p.raw_type }}Dto {{ p.name }} { get; set; }
+    {% endif %}
+    {% else %}
+    /// <summary>
+    {{ p.summary }}
+    /// </summary>
+    public {{ p.raw_type }} {{ p.name }} { get; set; }
+    {% endif %}
+{% endfor %}
+}

@@ -1,0 +1,72 @@
+{% if mediator_lib == 'Mediator' %}
+{% set return_type = 'ValueTask' %}
+{% else %}
+{% set return_type = 'Task' %}
+{% endif -%}
+
+{% set command_name = 'Get' + file.class_name + 'GridQuery' %}
+{% set command_handler = command_name + 'Handler' %}
+{% set Vm = file.class_name + 'Vm' %}
+using System.Threading;
+using System.Threading.Tasks;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using {{ mediator_lib }};
+{% if sieve %}
+{% set return_value = 'GridData<' + Vm + '>'%}
+using {{ file.solution_name }}.Application.Common.Interfaces.Services.SieveSevices;
+using {{ file.solution_name }}.Application.Common.Models.SieveModels;
+{% else %}
+{% set return_value = 'LoadResult'%}
+using DevExtreme.AspNet.Data;
+using DevExtreme.AspNet.Data.ResponseModel;
+using DevExtreme.AspNet.Mvc;
+{% endif %}
+using {{ file.solution_name }}.Application.Common.Interfaces;
+
+namespace {{ target_namespace }};
+
+/// <summary>
+/// Запрос на получение таблицы сущности "{{ file.class_summary }}"
+/// </summary>
+public class {{ command_name }} : IRequest<{{ return_value }}>
+{
+    /// <summary>
+    /// Параметры загрузки таблицы
+    /// </summary>
+    {% if sieve %}
+    public CustomSieveModel SieveModel { get; set; }
+    {% else %} 
+    public DataSourceLoadOptions LoadOptions { get; set; }
+    {% endif %}
+}
+
+public class {{ command_handler }} : IRequestHandler<{{ command_name }}, {{ return_value }}>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly IMapper _mapper;
+    {% if sieve %}
+    private readonly ISieveService _sieveService;
+    {% endif %} 
+
+    public {{ command_handler }}(IApplicationDbContext context, IMapper mapper{% if sieve %}, ISieveService sieveService{% endif %})
+    {
+        _context = context;
+        _mapper = mapper;
+        {% if sieve %}
+        _sieveService = sieveService;
+        {% endif %}
+    }
+
+    public async {{ return_type }}<{{ return_value }}> Handle({{ command_name }} request, CancellationToken cancellationToken)
+    {
+        var query = _context.{{ file.pluralized_class_name }}
+            .ProjectTo<{{ Vm }}>(_mapper.ConfigurationProvider);
+
+        {% if sieve %}
+        return await _sieveService.GetGridDataAsync(request.SieveModel, query, cancellationToken);
+        {% else %}
+        return await DataSourceLoader.LoadAsync(query, request.LoadOptions, cancellationToken);
+        {% endif %}
+    }
+}

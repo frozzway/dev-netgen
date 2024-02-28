@@ -1,0 +1,50 @@
+{% set command_name = 'Update' + file.class_name + 'Command' %}
+{% set command_handler = command_name + 'Handler' %}
+using System.Threading;
+using System.Threading.Tasks;
+using AutoMapper;
+using {{ mediator_lib }};
+using {{ file.solution_name }}.Application.Common.Interfaces;
+using {{ file.solution_name }}.Application.Common.Extensions;
+using {{ file.solution_name }}.Application.Common.Exceptions;
+using {{ file.namespace.name }};
+
+namespace {{ target_namespace }};
+
+/// <summary>
+/// Команда редактирования сущности "{{ file.class_summary }}"
+/// </summary>
+public class {{ command_name }} : IRequest
+{
+    /// <summary>
+    /// Объект передачи данных
+    /// </summary>
+    public {{ file.class_name }}Dto Dto { get; set; }
+}
+
+public class {{ command_handler }} : IRequestHandler<{{ command_name }}>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly IMapper _mapper;
+
+    public {{ command_handler }}(IApplicationDbContext context, IMapper mapper)
+    {
+        _context = context;
+        _mapper = mapper;
+    }
+
+    public async {{ return_value }}<Unit> Handle({{ command_name }} request, CancellationToken cancellationToken)
+    {
+        var entity = await _context.{{ file.pluralized_class_name }}
+            .FindByIdAsync(request.Dto.Id, cancellationToken);
+
+        if (entity is null)
+            throw new NotFoundException(nameof({{ file.class_name }}), request.Dto.Id);
+
+        _mapper.Map(request.Dto, entity);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Unit.Value;
+    }
+}
