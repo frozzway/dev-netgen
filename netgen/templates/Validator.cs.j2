@@ -1,0 +1,53 @@
+{%- set command_name = action + file.class_name + 'Command' %}
+{%- set validator_name = command_name + 'Validator' %}
+using FluentValidation;
+
+namespace {{ target_namespace }};
+
+public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
+{
+    public {{ validator_name }}()
+    {
+    {% for p in file.validation_properties %}
+    {% if loop.index >= 2 %}
+
+    {% endif %}
+    {% if p.prop_type == 'string' %}
+        RuleFor(i => i.Dto.{{ p.name }})
+            .NotNull().NotEmpty();
+    {% endif %}
+    {% if p.is_enum %}
+        RuleFor(i => i.Dto.{{ p.name }})
+            .IsInEnum();
+    {% endif %}
+    {% endfor %}
+    {% for f in file.included_files %}
+    {% if f.validation_properties|length > 0 %}
+    {% if loop.index >= 1 %}
+
+    {% endif %}
+    {% if f.factory_property.is_list_generic %}
+        RuleForEach(i => i.Dto.{{ f.factory_property.name }})
+    {% else %}
+        RuleFor(i => i.Dto.{{ f.class_name }})
+    {% endif %}
+            .ChildRules(i =>
+            {
+                {% for p in f.validation_properties %}
+                {% if loop.index >= 2 %}
+
+                {% endif %}
+                {% if p.prop_type == 'string' %}
+                i.RuleFor(j => j.{{ p.name }})
+                    .NotNull().NotEmpty();
+                {% endif %}
+                {% if p.is_enum %}
+                i.RuleFor(j => j.{{ p.name }})
+                    .IsInEnum();
+                {% endif %}
+                {% endfor %}
+            });
+    {% endif %}
+    {% endfor %}
+    }
+}

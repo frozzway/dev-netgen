@@ -1,0 +1,41 @@
+{% set command_name = 'Get' + file.pluralized_class_name + 'Query' %}
+{% set command_handler = command_name + 'Handler' %}
+{% set Vm = file.class_name + 'Vm' %}
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using {{ mediator_lib }};
+using Microsoft.EntityFrameworkCore;
+using {{ file.solution_name }}.Application.Common.Interfaces;
+
+namespace {{ target_namespace }};
+
+/// <summary>
+/// Запрос на получение списка сущностей "{{ file.class_summary }}"
+/// </summary>
+public class {{ command_name }} : IRequest<IList<{{ Vm }}>>
+{
+}
+
+public class {{ command_handler }} : IRequestHandler<{{ command_name }}, IList<{{ Vm }}>>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly IMapper _mapper;
+
+    public {{ command_handler }}(IApplicationDbContext context, IMapper mapper)
+    {
+        _context = context;
+        _mapper = mapper;
+    }
+
+    public async {{ return_value }}<IList<{{ Vm }}>> Handle({{ command_name }} request, CancellationToken cancellationToken)
+    {
+        var list = await _context.{{ file.pluralized_class_name }}
+            .ProjectTo<{{ Vm }}>(_mapper.ConfigurationProvider)
+            .ToListAsync(cancellationToken);
+
+        return list;
+    }
+}

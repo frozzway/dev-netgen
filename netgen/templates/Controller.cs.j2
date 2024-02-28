@@ -1,0 +1,91 @@
+using {{ mediator_lib }};
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+{% if sieve %}
+using {{ file.solution_name }}.Application.Common.Models.SieveModels;
+{% else %}
+using DevExtreme.AspNet.Data.ResponseModel;
+using DevExtreme.AspNet.Mvc;
+{% endif %}
+using {{ file.solution_name }}.{{ webui }}.Controllers.Common;
+{% for namespace in command_namespaces %}
+using {{ namespace.name }};
+{% endfor %}
+using CreateDto = {{ create_namespace.name }}.{{ file.class_name }}Dto;
+using UpdateDto = {{ update_namespace.name }}.{{ file.class_name }}Dto;
+using GetVm = {{ get_namespace.name }}.{{ file.class_name }}Vm;
+using GetListVm = {{ get_list_namespace.name }}.{{ file.class_name }}Vm;
+{% if sieve %}
+using GetGridVm = {{ get_grid_namespace.name }}.{{ file.class_name }}Vm;
+{% endif %}
+
+namespace {{ target_namespace }};
+
+/// <summary>
+/// Контроллер для работы с сущностью "{{ file.class_summary }}"
+/// </summary>
+[Authorize]
+public class {{ file.class_name }}Controller : ApiMediatorController
+{
+    /// <summary>
+    /// Метод создания сущности "{{ file.class_summary }}"
+    /// </summary>
+    /// <param name="dto">Объект передачи данных</param>
+    /// <returns>Идентификатор новой записи</returns>
+    [HttpPost]
+    public async Task<long> Create([FromBody] CreateDto dto)
+        => await Mediator.Send(new {{ create_namespace.last_name_part }}Command { Dto = dto });
+
+    /// <summary>
+    /// Метод редактирования сущности "{{ file.class_summary }}"
+    /// </summary>
+    /// <param name="dto">Объект передачи данных</param>
+    [HttpPost]
+    public async Task<Unit> Update([FromBody] UpdateDto dto)
+        => await Mediator.Send(new {{ update_namespace.last_name_part }}Command { Dto = dto });
+
+    /// <summary>
+    /// Метод удаления сущности "{{ file.class_summary }}"
+    /// </summary>
+    /// <param name="id">Идентификатор сущности</param>
+    [HttpDelete]
+    public async Task<Unit> Delete(long id)
+        => await Mediator.Send(new {{ delete_namespace.last_name_part }}Command { Id = id });
+
+    /// <summary>
+    /// Метод получения сущности "{{ file.class_summary }}"
+    /// </summary>
+    /// <param name="id">Идентификатор сущности</param>
+    /// <returns>Модель отображения сущности</returns>
+    [HttpGet]
+    public async Task<GetVm> Get(long id)
+        => await Mediator.Send(new {{ get_namespace.last_name_part }}Query { Id = id });
+
+    {% if sieve %}
+    /// <summary>
+    /// Метод получения таблицы сущностей "{{ file.class_summary }}"
+    /// </summary>
+    /// <param name="sieveModel">Параметры для загрузки таблицы</param>
+    /// <returns>Объект результата загрузки грида DevExtreme со списком пользователей (IQueryable)</returns>
+    [HttpPost]
+    public async Task<GridData<GetGridVm>> GetGrid([FromBody] CustomSieveModel sieveModel)
+        => await Mediator.Send(new {{ get_grid_namespace.last_name_part }}Query { SieveModel = sieveModel });
+    {% else %}
+    /// <summary>
+    /// Метод получения таблицы сущностей "{{ file.class_summary }}"
+    /// </summary>
+    /// <param name="loadOptions">Параметры для загрузки таблицы</param>
+    /// <returns>Данные для подстановки в таблицу</returns>
+    [HttpPost]
+    public async Task<LoadResult> GetGrid(DataSourceLoadOptions loadOptions)
+        => await Mediator.Send(new {{ get_grid_namespace.last_name_part }}Query { LoadOptions = loadOptions });
+    {% endif %}
+
+    /// <summary>
+    /// Метод получения списка сущностей "{{ file.class_summary }}"
+    /// </summary>
+    /// <returns>Список сущностей</returns>
+    [HttpGet]
+    public async Task<IList<GetListVm>> GetList()
+        => await Mediator.Send(new {{ get_list_namespace.last_name_part }}Query());
+}
