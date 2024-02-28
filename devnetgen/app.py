@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 from collections.abc import Set
 from typing import Union
+from rich import print
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -308,6 +309,8 @@ class Executor:
         self.webapi = False
         self.command_namespaces = None
         self.sieve = False
+        self.changed_directories = set()
+        self.created_files_num = 0
 
         self.dto_template = 'DtoTemplate.cs.j2'
         self.vm_template = 'VmTemplate.cs.j2'
@@ -327,6 +330,7 @@ class Executor:
         self._create_template_files()
         self._write_controller(legacy_controller)
         self.cleanup_files()
+        self.output_data()
 
     def _calculate_namespaces(self):
         controller_path = next(self.entity.solution_path.glob('**/Controllers'))
@@ -410,6 +414,7 @@ class Executor:
                     continue
                 with open(filepath, "w", encoding='utf-8') as file:
                     file.write(output.content)
+                    self._log_directory(namespace)
 
             template = env.get_template(command_template)
             output = template.render(file=self.entity,
@@ -422,6 +427,7 @@ class Executor:
             if not filepath.exists():
                 with open(filepath, "w", encoding='utf-8') as file:
                     file.write(output)
+                    self._log_directory(namespace)
 
             self.add_to_git(namespace.path)
 
@@ -443,6 +449,7 @@ class Executor:
         output = template.render(file=self.entity, action=action, target_namespace=namespace.name)
         with open(filepath, "w", encoding='utf-8') as file:
             file.write(output)
+            self._log_directory(namespace)
 
     @staticmethod
     def add_to_git(directory_path: Path):
@@ -481,8 +488,18 @@ class Executor:
 
         with open(filepath, "w", encoding='utf-8') as file:
             file.write(output)
+            self._log_directory(self.target_webui_namespace)
 
         self.add_to_git(self.target_webui_namespace.path)
+
+    def _log_directory(self, namespace: Namespace):
+        self.created_files_num += 1
+        self.changed_directories.add(namespace.name.replace('.', '/'))
+
+    def output_data(self):
+        print(f'Сгенерировано {self.created_files_num} файлов в директориях:')
+        for directory in self.changed_directories:
+            print(str(directory).removeprefix(self.entity.solution_name))
 
     def cleanup_files(self):
         self.entity.clear_summaries_flags()
