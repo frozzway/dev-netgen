@@ -43,6 +43,7 @@ class SolutionMeta:
 
 @dataclass
 class File:
+    """ Объект с содержанием Vm/Dto и наименованием результирующего файла """
     name: str
     content: str
 
@@ -311,6 +312,7 @@ class FileClass:
             self.used_entities_namespaces.add(namespace_obj)
 
     def fill_required_namespaces(self):
+        """ Определить необходимые пространства имен для файлов vm/dto """
         for prop in self.properties:
             prop_type = prop.prop_type
 
@@ -339,6 +341,7 @@ class FileClass:
         self.required_solution_namespaces.add(self.namespace)
 
     def calculate_included_files(self):
+        """ Сформировать объекты FileClass для каждого из навигационного свойства сущности """
         for prop in self.properties:
             if prop.is_navigation and prop.required_namespace:
                 if namespace_path := prop.required_namespace.path:
@@ -346,6 +349,14 @@ class FileClass:
                     self.included_files.add(file)
 
     def _create_template(self, target_namespace: str, template: str, for_update: bool, ientity: bool = False) -> File:
+        """
+        Сформировать vm/dto по шаблону
+        :param target_namespace: пространство имен сформированной vm/dto
+        :param template: шаблон vm/dto
+        :param for_update: флаг для передачи в шаблон, dto для редактирования сущности
+        :param ientity: флаг для передачи в шаблон, реализация интерфейса IEntityWithId у VM
+        :return: объект типа File с наименованием и содержанием vm/dto
+        """
         template = env.get_template(template)
         output = template.render(
             file=self,
@@ -355,6 +366,14 @@ class FileClass:
         return File(self.class_name, output)
 
     def create_templates(self, target_namespace: str, template: str, for_update: bool = False, ientity: bool = False) -> list[File]:
+        """
+        Сформировать vm/dto по шаблону для исходной и навигационных сущностей
+        :param target_namespace: пространство имен сформированной vm/dto
+        :param template: шаблон vm/dto
+        :param for_update: флаг для передачи в шаблон, dto для редактирования сущности
+        :param ientity: флаг для передачи в шаблон, реализация интерфейса IEntityWithId у VM
+        :return: список объектов типа File с наименованиями и содержаниями vm/dto
+        """
         storage = []
         self._recursive_create_templates(target_namespace, template, for_update, storage)
         storage[0] = self._create_template(target_namespace, template, for_update, ientity)
