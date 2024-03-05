@@ -10,7 +10,7 @@ app = typer.Typer()
 def main(path: str, legacy_controller: bool = False):
     entity = FileClass(path)
     executor = Executor(entity)
-    executor.create_dto(legacy_controller=legacy_controller)
+    executor.create_all(legacy_controller=legacy_controller)
 
 #if __name__ == "__main__":
     #main('/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks/Domain/Entities/Reports/AppealContract.cs')

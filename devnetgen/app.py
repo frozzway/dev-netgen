@@ -27,6 +27,21 @@ default_properties = {'int', 'bool', 'float', 'string', 'decimal', 'long', 'Date
 
 
 @dataclass
+class SolutionMeta:
+    """
+    Мета-информация о проекте
+
+    Attributes:
+        mediator: использование библиотеки Mediator/MediatR
+        webapi: директория с контроллерами WebAPI/WebUI
+        sieve: использование Sieve/Devexpress для грида
+    """
+    mediator: Optional[bool] = None
+    webapi: Optional[bool] = None
+    sieve: Optional[bool] = None
+
+
+@dataclass
 class File:
     name: str
     content: str
@@ -34,6 +49,16 @@ class File:
 
 @dataclass
 class Property:
+    """
+    Свойство сущности
+
+    Attributes:
+        name: имя свойства
+        _prop_type: тип свойства
+        _summary: описание свойства
+        required_namespace: объект Namespace, в котором содержится тип свойства
+        file_class: ссылка на класс сущности
+    """
     name: str
     _prop_type: str
     _summary: Optional[str]
@@ -54,6 +79,7 @@ class Property:
 
     @property
     def is_navigation(self) -> bool:
+        """ Проверка, является ли навигационным свойством """
         return not self.is_enum and self.prop_type not in default_properties
 
     @property
@@ -62,6 +88,7 @@ class Property:
 
     @property
     def is_enum(self) -> bool:
+        """ Проверка, является ли тип свойства перечислением """
         return self.prop_type in self.file_class.enums_namespace.classes
 
     @property
@@ -74,6 +101,7 @@ class Property:
 
     @property
     def non_listed_prop_type(self) -> Optional[str]:
+        """ Тип свойства, извлеченный из List<*> """
         if self.is_list_generic:
             return re.search(r"List<(.*)>", self._prop_type).group(1)
         return self._prop_type
@@ -81,6 +109,7 @@ class Property:
 
 @dataclass
 class Namespace:
+    """ Пространство имени """
     name: str
     classes: set[str] = field(default_factory=set)
     path: Optional[Path] = None
@@ -99,7 +128,7 @@ class Namespace:
 
 
 class NamespaceCollection(Set):
-
+    """ Коллекция для пространств имён (множество) """
     def __init__(self):
         self.namespaces = set()
         self._last_found = None
@@ -129,7 +158,30 @@ class NamespaceCollection(Set):
 
 
 class FileClass:
-    def __init__(self, path: Union[str, Path], factory_property=None):
+    """
+    Класс представления сущности.
+
+    Attributes:
+        solution_name: наименование решения (пр. "MinstroyGasDistributionNetworks")
+        namespace: объект типа Namespace сущности
+        enums_namespace: объект типа Namespace под енамы
+        properties: список извлеченных из сущности свойств типа Property
+        class_summary: summary самой сущности
+        upper_namespaces: коллекция NamespaceCollection для выявления расположения файлов-навигационных свойств сущности, не расположенных непосредственно в директории сущности
+        used_entities_namespaces: использованные в коде сущности пространства имён
+        required_solution_namespaces: необходимые для декларирования в файлах vm/dto пространства имён
+        required_system_namespaces: необходимые для декларирования в файлах vm/dto пространства имён (системные)
+        included_files: набор классов FileClass для vm/dto, которые должны быть созданы помимо vm/dto основной сущности
+        file_path: абсолютный путь до файла сущности (объект Path)
+        class_name: имя сущности (пр. "Appeal")
+        pluralized_class_name: имя сущности в мн. числе (пр. "Appeals")
+        solution_path: абсолютный путь решения, объект Path (пр. "/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks")
+    """
+    def __init__(self, path: Union[str, Path], factory_property: Optional[Property] = None):
+        """
+        :param path: абсолютный путь до файла сущности
+        :param factory_property: навигационное свойство сущности, на основе которого был инициализирован класс
+        """
         self.factory_property = factory_property
         self.file_text = ''
         self.file_lines = None
@@ -171,6 +223,9 @@ class FileClass:
             self.file_text = ''.join(self.file_lines)
 
     def index_self_namespace(self):
+        """
+        Определить наименование решения и вычислить Namespace сущности и файлов Enum
+        """
         regex = r"^namespace ([^;]*);"
         namespace = re.search(regex, self.file_text, re.MULTILINE).group(1)
         namespace_parts = namespace.split('.')
@@ -184,15 +239,21 @@ class FileClass:
             self.upper_namespaces.add(namespace_obj)
 
     def get_class_summary(self):
+        """
+        Извлечь summary сущности
+        """
         regex = r"namespace [^;]*;\s*/// <summary>\s*/// ((?:.|\n)*?)\s*/// </summary>"
         if match := re.search(regex, self.file_text, re.MULTILINE):
             self.class_summary = match.group(1)
 
     def extract_properties(self):
+        """
+        Извлечь свойства сущности и относящуюся к ним информацию
+        """
         class_body_lines = self.get_body_lines()
         class_body_text = ''.join(class_body_lines)
         regex = re.compile(
-            r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)",
+            r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?(?:(?:\[.+]\s*)+)?\s*public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)",
             re.S)
         matches = regex.finditer(class_body_text)
 
@@ -205,6 +266,9 @@ class FileClass:
         self.properties = list(filter(self.filter_property, properties))
 
     def get_body_lines(self) -> list[str]:
+        """
+        :return: строки файла, начиная с тела класса сущности
+        """
         start_line = 0
         for i, line in enumerate(self.file_lines):
             if line.find(f'public class {self.class_name}') != -1:
@@ -224,6 +288,11 @@ class FileClass:
         return not prop.is_navigation
 
     def get_namespace_obj(self, namespace: str) -> Namespace:
+        """
+        Сформировать объект Namespace, вычисляя абсолютный путь до директории и все лежащие в ней классы
+        :param namespace: строка namespace
+        :return: Объект Namespace
+        """
         directory = Path(self.solution_path) / namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
         directory.mkdir(parents=True, exist_ok=True)
         classes = (file.name.removesuffix('.cs') for file in directory.iterdir() if
@@ -231,6 +300,9 @@ class FileClass:
         return Namespace(name=namespace, classes=set(classes), path=directory)
 
     def index_used_namespaces(self):
+        """
+        Вычислить объекты Namespace для использованных в коде сущности Namespace
+        """
         regex = re.compile(r"using (" + re.escape(self.solution_name) + r"\.Domain\..*);")
         matches = regex.finditer(self.file_text)
         for match in matches:
@@ -295,20 +367,31 @@ class FileClass:
             file._recursive_create_templates(target_namespace, template, for_update, storage)
 
     def clear_summaries_flags(self):
+        """ Очистить '!' и '@' из summaries свойств сущности """
         cleaned_text = self.file_text.replace('<summary>!', '<summary>').replace('<summary>@', '<summary>')
         with open(self.file_path, 'w', encoding='utf-8') as file:
             file.write(cleaned_text)
 
 
 class Executor:
+    """
+    Класс с методами для создания CRUD'а и файла контроллера сущности
+
+    Attributes:
+        entity: сущность типа FileClass для которой создаются элементы
+        target_application_namespace: неполный (базовый) объект Namespace /Application/Work/..
+        target_webui_namespace: неполный (базовый) объект Namespace /Application/Work/..
+        meta: мета-информация о проекте
+        command_namespaces: пространства имен команд и запросов
+        changed_directories: директории, в которых сгенерированы файлы
+        created_files_num: число сгенерированных файлов
+    """
     def __init__(self, obj: FileClass):
         self.entity = obj
         self.target_application_namespace = None
         self.target_webui_namespace = None
-        self.mediator = True
-        self.webapi = False
+        self.meta = SolutionMeta()
         self.command_namespaces = None
-        self.sieve = False
         self.changed_directories = set()
         self.created_files_num = 0
 
@@ -324,7 +407,11 @@ class Executor:
         self.controller_template = 'Controller.cs.j2'
         self.legacy_controller_template = 'LegacyController.cs.j2'
 
-    def create_dto(self, legacy_controller: bool = False):
+    def create_all(self, legacy_controller: bool = False):
+        """
+        Сгенерировать и записать на диск CRUD, файл контроллера и вывести результат в stdout
+        :param legacy_controller: флаг для генерации файла контроллера в legacy проектах
+        """
         self._extract_meta()
         self._calculate_namespaces()
         self._create_template_files()
@@ -333,6 +420,7 @@ class Executor:
         self.output_data()
 
     def _calculate_namespaces(self):
+        """ Определить базовые директории генерации файлов и соответствующие неполные неймспейсы"""
         controller_path = next(self.entity.solution_path.glob('**/Controllers'))
 
         if match := re.search("^.*References?(.*)", self.entity.namespace.name):
@@ -359,23 +447,21 @@ class Executor:
         self.target_application_namespace = self.entity.get_namespace_obj(namespace_name + f'.{self.entity.pluralized_class_name}')
 
         webui_posix = webui_path.as_posix()
-        prefix = '/WebApi' if self.webapi else '/WebUI'
+        prefix = '/WebApi' if self.meta.webapi else '/WebUI'
         namespace_name = self.entity.solution_name + webui_posix[webui_posix.index(prefix):].replace('/', '.')
         self.target_webui_namespace = self.entity.get_namespace_obj(namespace_name)
 
     def _extract_meta(self):
+        """ Извлечь мета-информацию, необходимую для генерации """
+        self.meta.webapi = (self.entity.solution_path / 'WebApi').exists()
+        self.meta.sieve = (self.entity.solution_path / 'Application' / 'Common' / 'Services' / 'SieveService.cs').exists()
+
         with open(self.entity.solution_path / 'Application' / 'Application.csproj', "r", encoding='utf-8') as file:
             text = file.read()
-            if 'MediatR' in text:
-                self.mediator = False
-
-        if (self.entity.solution_path / 'WebApi').exists():
-            self.webapi = True
-
-        if (self.entity.solution_path / 'Application' / 'Common' / 'Services' / 'SieveService.cs').exists():
-            self.sieve = True
+            self.meta.mediator = 'MediatR' not in text
 
     def _create_template_files(self):
+        """ Сгенерировать и записать на диск CRUD сущности """
         namespace_outputs: list[tuple[Namespace, list[File], str, str, str]] = []
 
         create_command_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Create{self.entity.class_name}')
@@ -419,7 +505,7 @@ class Executor:
             template = env.get_template(command_template)
             output = template.render(file=self.entity,
                                      target_namespace=namespace.name,
-                                     sieve=self.sieve,
+                                     sieve=self.meta.sieve,
                                      **self._get_template_vars()['mediator'])
 
             command_name = f"{namespace.last_name_part}{command_type}"
@@ -441,6 +527,11 @@ class Executor:
         }
 
     def _write_validator(self, namespace: Namespace, action: str):
+        """
+        Сгенерировать и записать на диск файл валидатора
+        :param namespace: пространство имен команды, для которой генерируется валидатор
+        :param action: Update или Create
+        """
         namespace.path.mkdir(parents=True, exist_ok=True)
         filepath = namespace.path / f'{namespace.last_name_part}CommandValidator.cs'
         if filepath.exists():
@@ -453,21 +544,26 @@ class Executor:
 
     @staticmethod
     def add_to_git(directory_path: Path):
+        """ Добавить все файлы директории в git """
         directory_str = str(directory_path)
         os.chdir(directory_str)
         subprocess.run(["git", "add", '.'])
 
     def _get_template_vars(self):
         mediator_data = {
-            "mediator_lib": 'Mediator' if self.mediator else 'MediatR',
-            "return_value": 'ValueTask' if self.mediator else 'Task'
+            "mediator_lib": 'Mediator' if self.meta.mediator else 'MediatR',
+            "return_value": 'ValueTask' if self.meta.mediator else 'Task'
         }
         return {
             'mediator': mediator_data,
-            'webui': 'WebApi' if self.webapi else 'WebUI'
+            'webui': 'WebApi' if self.meta.webapi else 'WebUI'
         }
 
     def _write_controller(self, legacy_controller: bool):
+        """
+        Сгенерировать и записать на диск файл контроллера
+        :param legacy_controller: флаг для генерации файла контроллера в legacy проектах
+        """
         filepath = self.target_webui_namespace.path / f'{self.entity.class_name}Controller.cs'
         if filepath.exists():
             return
@@ -482,7 +578,7 @@ class Executor:
             target_namespace=self.target_webui_namespace.name,
             webui=template_vars['webui'],
             command_namespaces=self.command_namespaces.values(),
-            sieve=self.sieve,
+            sieve=self.meta.sieve,
             **template_vars['mediator'],
             **self.command_namespaces)
 
@@ -502,6 +598,7 @@ class Executor:
             print(str(directory).removeprefix(self.entity.solution_name))
 
     def cleanup_files(self):
+        """ Очистить '!' и '@' из summaries свойств всех задействованных сущностей """
         self.entity.clear_summaries_flags()
         for file in self.entity.included_files:
             file.clear_summaries_flags()
