@@ -7,15 +7,8 @@ from pathlib import Path
 from typing import Optional
 from itertools import chain
 
-from devnetgen.entities import Namespace, Entity, VmDto
+from devnetgen.entities import Namespace, Entity, VmDto, File
 from devnetgen.config import env
-
-
-@dataclass
-class File:
-    """ Объект с содержанием Vm/Dto и наименованием результирующего файла """
-    name: str
-    content: str
 
 
 @dataclass
@@ -59,7 +52,7 @@ class Executor:
             self.meta.mediator = 'MediatR' not in text
 
     def output_data(self):
-        print(f'Сгенерировано/изменено {self.changed_files_num} файлов в директориях:')
+        print(f'Сгенерировано {self.changed_files_num} файлов в директориях:')
         for directory in self.changed_directories:
             print(str(directory).removeprefix(self.solution_name))
 
@@ -291,12 +284,18 @@ class SummariesExecutor(Executor):
             file = VmDto(file_path)
             file.add_properties_summaries()
             file.add_class_summary()
-            self._log_directory(file_path)
+            if file.substituted_file_text != file.file_text:
+                self._log_file(file_path)
 
         self.output_data()
 
-    def _log_directory(self, directory: Path):
-        posix_dir = directory.as_posix()
-        directory = posix_dir[posix_dir.index('/Application'):]
+    def _log_file(self, path: Path):
+        posix_dir = path.as_posix()
+        path = posix_dir[posix_dir.index('/Application'):]
         self.changed_files_num += 1
-        self.changed_directories.add(directory)
+        self.changed_directories.add(path)
+
+    def output_data(self):
+        print(f'Изменено {self.changed_files_num} файлов:')
+        for directory in self.changed_directories:
+            print(str(directory).removeprefix(self.solution_name))

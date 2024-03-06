@@ -30,13 +30,77 @@ fun refreshProject(project: Project) {
 }
 
 
-class CustomDefaultActionGroup: DefaultActionGroup("NetGen Group", "", AllIcons.Diff.MagicResolve) {
-  override fun update(event: AnActionEvent) {
+fun domainUpdate(event: AnActionEvent) {
+    val selectedFile = event.virtualFile
+    val presentation = event.presentation
+
+    if (selectedFile != null && selectedFile.extension == "cs"
+        && selectedFile.getPath().contains("Domain")) {
+         // Делаем действие видимым и доступным
+         presentation.isVisible = true
+         presentation.isEnabled = true
+       } else {
+         // Делаем действие невидимым и недоступным
+         presentation.isVisible = false
+         presentation.isEnabled = false
+       }
+}
+
+
+fun summaryPerform(event: AnActionEvent) {
+    saveAllChanges(event);
+    val project = event.getProject()!!;
+    val filepath = event.virtualFile!!.getPath();
+    val result = runShellCommand("dev-netgen", "summary", filepath);
+    show(result.stdout + result.stderr);
+    refreshProject(project);
+}
+
+
+class CustomActionGroup: DefaultActionGroup("NetGen Group", "", AllIcons.Diff.MagicResolve) {}
+
+class CrudAction: AnAction("Create CRUD") {
+
+    override fun update(event: AnActionEvent) {
+       domainUpdate(event)
+    }
+
+    override fun actionPerformed(event: AnActionEvent) {
+        saveAllChanges(event);
+        val project = event.getProject()!!;
+        val filepath = event.virtualFile!!.getPath();
+        val result = runShellCommand("dev-netgen", "all", filepath);
+        show(result.stdout + result.stderr);
+        refreshProject(project);
+    }
+}
+
+class LegacyCrudAction: AnAction("Create CRUD: legacy controller") {
+
+    override fun update(event: AnActionEvent) {
+       domainUpdate(event)
+    }
+
+    override fun actionPerformed(event: AnActionEvent) {
+        saveAllChanges(event);
+        val project = event.getProject()!!;
+        val filepath = event.virtualFile!!.getPath();
+        val result = runShellCommand("dev-netgen", "all", filepath, "--legacy-controller");
+        show(result.stdout + result.stderr);
+        refreshProject(project);
+    }
+}
+
+class ApplicationSummariesAction: AnAction("Сгенерировать <summary> - Application") {
+
+    override fun update(event: AnActionEvent) {
        val selectedFile = event.virtualFile
        val presentation = event.presentation
-       
+
        if (selectedFile != null && selectedFile.extension == "cs"
-            && selectedFile.getPath().contains("Domain")) {
+            && selectedFile.getPath().contains("Application")
+            && (selectedFile.getName().endsWith("Dto.cs") || selectedFile.getName().endsWith("Vm.cs"))
+          ) {
              // Делаем действие видимым и доступным
              presentation.isVisible = true
              presentation.isEnabled = true
@@ -45,50 +109,53 @@ class CustomDefaultActionGroup: DefaultActionGroup("NetGen Group", "", AllIcons.
              presentation.isVisible = false
              presentation.isEnabled = false
            }
-  }
-}
-
-class CrudAction: AnAction("Create CRUD") {
+    }
 
     override fun actionPerformed(event: AnActionEvent) {
-        saveAllChanges(event);
-        val project = event.getProject()!!;
-        val filepath = event.virtualFile!!.getPath();
-        val result = runShellCommand("dev-netgen", filepath);
-        show(result.stdout + "\n Exit code: " + result.exitCode + result.stderr);
-        refreshProject(project);
+        summaryPerform(event)
     }
 }
 
-class LegacyCrudAction: AnAction("Create CRUD: legacy controller") {
+class DomainSummariesAction: AnAction("Сгенерировать <summary> - Domain") {
+    override fun update(event: AnActionEvent) {
+       domainUpdate(event)
+    }
 
     override fun actionPerformed(event: AnActionEvent) {
-        saveAllChanges(event);
-        val project = event.getProject()!!;
-        val filepath = event.virtualFile!!.getPath();
-        val result = runShellCommand("dev-netgen", filepath, "--legacy-controller");
-        show(result.stdout + "\n Exit code: " + result.exitCode + result.stderr);
-        refreshProject(project);
+        summaryPerform(event)
     }
 }
 
 val crudAction = registerAction(
-    id = "Create CRUD",
+    id = "Сгенерировать CRUD",
     action = CrudAction()
 )
 
 val crudLegacyAction = registerAction(
-    id = "Create CRUD: legacy controller",
+    id = "Сгенерировать CRUD: на legacy controller",
     action = LegacyCrudAction()
 )
 
-val actionGroup = CustomDefaultActionGroup().also { it.isPopup = true }
+val domainSummaryAction = registerAction(
+    id = "Сгенерировать <summary> в файле(-ах) Vm/Dto на основе сущности",
+    action = DomainSummariesAction()
+)
+
+val applicationSummaryAction = registerAction(
+    id = "Сгенерировать <summary> в файле на основе сущности",
+    action = ApplicationSummariesAction()
+)
+
+val actionGroup = CustomActionGroup().also { it.isPopup = true }
 
 actionGroup.add(crudAction)
 actionGroup.add(crudLegacyAction)
+actionGroup.add(domainSummaryAction)
+actionGroup.add(applicationSummaryAction)
+
 
 registerAction(
-    id = "NetGen: CRUD",
+    id = "NetGen: генерация",
     actionGroupId = "SolutionExplorerPopupMenu",
     action = actionGroup
 )

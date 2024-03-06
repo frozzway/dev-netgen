@@ -26,5 +26,5 @@ def add_summaries(path: str):
         executor.add_summaries()
 
 
-if __name__ == "__main__":
-    add_summaries('/home/alex/Documents/RiderProjects/SystemsRegistryCore/Application/Work/InformationSystems/DatasetHystories/Queries/GetDatasetHystoryGrid/DatasetHystoryVm.cs')
+#if __name__ == "__main__":
+    #add_summaries('/home/alex/Documents/RiderProjects/SystemsRegistryCore/Domain/Entities/InformationSystems/DatasetHystory.cs')

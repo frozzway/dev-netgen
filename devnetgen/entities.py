@@ -7,13 +7,19 @@ from typing import Optional
 from collections.abc import Set
 from typing import Union
 
-from devnetgen.executors import File
 from devnetgen.config import env
 from devnetgen.pluralize import pluralize
 
 system_namespace = 'System'
 generic_collections_namespace = 'System.Collections.Generic'
 default_properties = {'int', 'bool', 'float', 'string', 'decimal', 'long', 'DateTime', 'double'}
+
+
+@dataclass
+class File:
+    """ Объект с содержанием Vm/Dto и наименованием результирующего файла """
+    name: str
+    content: str
 
 
 @dataclass
@@ -37,9 +43,14 @@ class Property:
     @property
     def summary(self) -> Optional[str]:
         summary = self._summary
+        if summary:
+            if not self.file_class.vm or self.file_class.vm.tabs == 4:
+                summary = summary.replace(' '*8, ' '*4)
+            if self.file_class.vm and self.file_class.vm.tabs == 8 and self.file_class.tabs == 4:
+                summary = summary.replace(' '*4, ' '*8)
         if self.is_navigation:
-            summary = summary.removeprefix('@\n    ')
-            match = re.search(r"^/// (?:Навигационное свойство - )?(?:[с|С]ущность)?\s*(.*)", summary)
+            summary = summary.removeprefix('@\n    ').removeprefix('    ')
+            match = re.search(r"^/// (?:Навигационное свойство - )?(?:[с|С]ущность)?\s*(.*)", summary, re.S)
             if match:
                 summary = match.group(1).capitalize()
                 if summary.startswith('"'):
@@ -131,6 +142,7 @@ class BaseEntity:
     Базовый класс представления c#-класса сущности или её Vm/Dto
 
     Attributes:
+        tabs: отступы перед 'public ...'
         enums_namespace: объект типа Namespace под енамы
         file_path: абсолютный путь до файла сущности (объект Path)
         class_name: имя класса (пр. "Appeal")
@@ -141,6 +153,7 @@ class BaseEntity:
         properties: список извлеченных из класса свойств типа Property
     """
     def __init__(self, path: Union[str, Path]):
+        self.tabs = 8
         self.file_text = ''
         self.file_lines = None
         self.namespace = None
@@ -154,6 +167,7 @@ class BaseEntity:
         self.class_name = self.file_path.name.removesuffix('.cs')
 
         self._read_file()
+        self._extract_tabs()
 
     def _read_file(self):
         with open(self.file_path, "r", encoding='utf-8') as file:
@@ -205,6 +219,13 @@ class BaseEntity:
             namespace_obj = self._get_namespace_obj(namespace)
             self.used_entities_namespaces.add(namespace_obj)
 
+    def _extract_tabs(self):
+        """ Определить отступы """
+        regex = r'^namespace ([^;{]*);'
+        file_scoped_namespace = re.search(regex, self.file_text, re.MULTILINE)
+        if file_scoped_namespace:
+            self.tabs = 4
+
 
 class VmDto(BaseEntity):
     """
@@ -213,14 +234,12 @@ class VmDto(BaseEntity):
     Attributes:
         base_entity: сущность в которую/от которой маппится vm/dto
         substituted_file_text: замененный текст файла на содержащий summaries
-        tabs: отступ перед 'public ...'
     """
     def __init__(self, path: Union[str, Path]):
         super().__init__(path)
 
         self.base_entity: Optional[Entity] = None
         self.substituted_file_text = self.file_text
-        self.tabs = 8
 
         str_path = str(path)
         self.solution_path = Path(str_path[:str_path.index('Application')])
@@ -228,14 +247,6 @@ class VmDto(BaseEntity):
         self._index_self_namespace()
         self._index_used_namespaces()
         self._get_base_entity()
-        self._extract_meta()
-
-    def _extract_meta(self):
-        """ Определить отступы """
-        regex = r'^namespace ([^;{]*);'
-        file_scoped_namespace = re.search(regex, self.file_text, re.MULTILINE)
-        if file_scoped_namespace:
-            self.tabs = 4
 
     def _get_base_entity(self):
         """ Определить сущность в которую/от которой маппится vm/dto """
@@ -248,7 +259,7 @@ class VmDto(BaseEntity):
 
         if entity_name in self.used_entities_namespaces:
             namespace = self.used_entities_namespaces.last_found
-            self.base_entity = Entity(namespace.path / f'{entity_name}.cs', filter_properties=False)
+            self.base_entity = Entity(namespace.path / f'{entity_name}.cs', filter_properties=False, vm=self)
 
     def add_properties_summaries(self):
         """ Внести комментарии к свойствам vm/dto из базовой сущности """
@@ -320,13 +331,15 @@ class Entity(BaseEntity):
         included_files: набор классов FileClass для vm/dto, которые должны быть созданы помимо vm/dto основной сущности
         pluralized_class_name: имя сущности в мн. числе (пр. "Appeals")
     """
-    def __init__(self, path: Union[str, Path], factory_property: Optional[Property] = None, filter_properties: bool = True):
+    def __init__(self, path: Union[str, Path], factory_property: Optional[Property] = None, filter_properties: bool = True, vm: Optional[VmDto] = None):
         """
         :param path: абсолютный путь до файла сущности
         :param factory_property: навигационное свойство сущности, на основе которого был инициализирован класс
         :param filter_properties: Отфильтровать свойства сущности в соответствии с флагами '!' и '@"
+        :param vm: Обратная ссылка на vm/dto
         """
         super().__init__(path)
+        self.vm = vm
         self.factory_property = factory_property
         self.namespace = None
         self.enums_namespace = None
@@ -379,7 +392,7 @@ class Entity(BaseEntity):
         class_body_lines = self._get_body_lines()
         class_body_text = ''.join(class_body_lines)
         regex = re.compile(
-            r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?(?P<attributes>(?:\[.+]\s*)+)?\s*public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)")
+            r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?(?P<attributes>(?:\[.+]\s*)+)?\s*public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)", re.S)
         matches = regex.finditer(class_body_text)
 
         self.properties = [
