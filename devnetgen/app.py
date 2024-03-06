@@ -63,11 +63,11 @@ class Property:
     name: str
     _prop_type: str
     _summary: Optional[str]
-    file_class: FileClass
+    file_class: EntityClass
     required_namespace: Optional[Namespace] = None
 
     @property
-    def summary(self):
+    def summary(self) -> Optional[str]:
         summary = self._summary
         if self.is_navigation:
             summary = summary.removeprefix('@\n    ')
@@ -158,115 +158,41 @@ class NamespaceCollection(Set):
         return self._last_found
 
 
-class FileClass:
+class BaseEntityClass:
     """
-    Класс представления сущности.
+    Базовый класс представления c#-класса сущности или её Vm/Dto
 
     Attributes:
-        solution_name: наименование решения (пр. "MinstroyGasDistributionNetworks")
-        namespace: объект типа Namespace сущности
         enums_namespace: объект типа Namespace под енамы
-        properties: список извлеченных из сущности свойств типа Property
-        class_summary: summary самой сущности
-        upper_namespaces: коллекция NamespaceCollection для выявления расположения файлов-навигационных свойств сущности, не расположенных непосредственно в директории сущности
-        used_entities_namespaces: использованные в коде сущности пространства имён
-        required_solution_namespaces: необходимые для декларирования в файлах vm/dto пространства имён
-        required_system_namespaces: необходимые для декларирования в файлах vm/dto пространства имён (системные)
-        included_files: набор классов FileClass для vm/dto, которые должны быть созданы помимо vm/dto основной сущности
         file_path: абсолютный путь до файла сущности (объект Path)
-        class_name: имя сущности (пр. "Appeal")
-        pluralized_class_name: имя сущности в мн. числе (пр. "Appeals")
+        class_name: имя класса (пр. "Appeal")
+        namespace: объект типа Namespace сущности
+        solution_name: наименование решения (пр. "MinstroyGasDistributionNetworks")
         solution_path: абсолютный путь решения, объект Path (пр. "/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks")
+        used_entities_namespaces: использованные в коде сущности пространства имён, относящиеся к сущностям в Domain
+        properties: список извлеченных из класса свойств типа Property
     """
-    def __init__(self, path: Union[str, Path], factory_property: Optional[Property] = None):
-        """
-        :param path: абсолютный путь до файла сущности
-        :param factory_property: навигационное свойство сущности, на основе которого был инициализирован класс
-        """
-        self.factory_property = factory_property
+    def __init__(self, path: Union[str, Path]):
         self.file_text = ''
         self.file_lines = None
-        self.solution_name = None
         self.namespace = None
         self.enums_namespace = None
-        self.properties: Optional[list[Property]] = None
-        self.class_summary = None
-        self.upper_namespaces = NamespaceCollection()
+        self.solution_name = None
+        self.solution_path = None
         self.used_entities_namespaces = NamespaceCollection()
-        self.required_solution_namespaces = NamespaceCollection()
-        self.required_system_namespaces = NamespaceCollection()
-        self.included_files: set[FileClass] = set()
+        self.properties: Optional[list[Property]] = None
 
         self.file_path = Path(path)
         self.class_name = self.file_path.name.removesuffix('.cs')
-        self.pluralized_class_name = pluralize(self.class_name)
-        str_path = str(path)
-        self.solution_path = Path(str_path[:str_path.index('Domain')])
 
-        self.read_file()
-        self.index_self_namespace()
-        self.get_class_summary()
-        self.extract_properties()
-        self.index_used_namespaces()
-        self.fill_required_namespaces()
-        self.calculate_included_files()
+        self._read_file()
 
-    @property
-    def validation_properties(self):
-        return [p for p in self.properties if p.prop_type == 'string' or p.is_enum]
-
-    def __repr__(self):
-        return f'{self.class_name}, {id(self)}'
-
-    def read_file(self):
+    def _read_file(self):
         with open(self.file_path, "r", encoding='utf-8') as file:
             self.file_lines = file.readlines()
             self.file_text = ''.join(self.file_lines)
 
-    def index_self_namespace(self):
-        """
-        Определить наименование решения и вычислить Namespace сущности и файлов Enum
-        """
-        regex = r"^namespace ([^;]*);"
-        namespace = re.search(regex, self.file_text, re.MULTILINE).group(1)
-        namespace_parts = namespace.split('.')
-        self.solution_name = namespace_parts[0]
-        self.namespace = self.get_namespace_obj(namespace)
-        self.enums_namespace = self.get_namespace_obj(f'{self.solution_name}.Domain.Enums')
-        prev_part = self.solution_name
-        for i in range(1, len(namespace_parts) - 1):
-            prev_part += '.' + namespace_parts[i]
-            namespace_obj = self.get_namespace_obj(prev_part)
-            self.upper_namespaces.add(namespace_obj)
-
-    def get_class_summary(self):
-        """
-        Извлечь summary сущности
-        """
-        regex = r"namespace [^;]*;\s*/// <summary>\s*/// ((?:.|\n)*?)\s*/// </summary>"
-        if match := re.search(regex, self.file_text, re.MULTILINE):
-            self.class_summary = match.group(1)
-
-    def extract_properties(self):
-        """
-        Извлечь свойства сущности и относящуюся к ним информацию
-        """
-        class_body_lines = self.get_body_lines()
-        class_body_text = ''.join(class_body_lines)
-        regex = re.compile(
-            r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?(?:(?:\[.+]\s*)+)?\s*public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)",
-            re.S)
-        matches = regex.finditer(class_body_text)
-
-        properties = [
-            Property(name=match.group('name'), _prop_type=match.group('type'), _summary=match.group('summary'),
-                     file_class=self)
-            for match in matches
-        ]
-
-        self.properties = list(filter(self.filter_property, properties))
-
-    def get_body_lines(self) -> list[str]:
+    def _get_body_lines(self) -> list[str]:
         """
         :return: строки файла, начиная с тела класса сущности
         """
@@ -276,6 +202,222 @@ class FileClass:
                 start_line = i + 1
                 break
         return self.file_lines[start_line:]
+
+    def _index_self_namespace(self):
+        """
+        Определить наименование решения и вычислить Namespace сущности и файлов Enum
+        """
+        regex = r"^namespace ([^;{]*)(?:;|\n)"
+        namespace = re.search(regex, self.file_text, re.MULTILINE).group(1)
+        namespace_parts = namespace.split('.')
+        self.solution_name = namespace_parts[0]
+        self.namespace = self._get_namespace_obj(namespace)
+        self.enums_namespace = self._get_namespace_obj(f'{self.solution_name}.Domain.Enums')
+
+    def _get_namespace_obj(self, namespace: str) -> Namespace:
+        """
+        Сформировать объект Namespace, вычисляя абсолютный путь до директории и все лежащие в ней классы
+        :param namespace: строка namespace
+        :return: Объект Namespace
+        """
+        directory = Path(self.solution_path) / namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
+        directory.mkdir(parents=True, exist_ok=True)
+        classes = (file.name.removesuffix('.cs') for file in directory.iterdir() if
+                   file.is_file() and file.name.endswith('.cs'))
+        return Namespace(name=namespace, classes=set(classes), path=directory)
+
+    def _index_used_namespaces(self):
+        """
+        Вычислить объекты Namespace для использованных в коде сущности Namespace
+        """
+        regex = re.compile(r"using (" + re.escape(self.solution_name) + r"\.Domain\..*);")
+        matches = regex.finditer(self.file_text)
+        for match in matches:
+            namespace = match.group(1)
+            namespace_obj = self._get_namespace_obj(namespace)
+            self.used_entities_namespaces.add(namespace_obj)
+
+
+class VmDtoClass(BaseEntityClass):
+    """
+    Класс представления Vm/Dto
+
+    Attributes:
+        base_entity: сущность в которую/от которой маппится vm/dto
+        substituted_file_text: замененный текст файла на содержащий summaries
+        tabs: отступ перед 'public ...'
+    """
+    def __init__(self, path: Union[str, Path]):
+        super().__init__(path)
+
+        self.base_entity: Optional[EntityClass] = None
+        self.substituted_file_text = self.file_text
+        self.tabs = 8
+
+        str_path = str(path)
+        self.solution_path = Path(str_path[:str_path.index('Application')])
+
+        self._index_self_namespace()
+        self._index_used_namespaces()
+        self._get_base_entity()
+        self._extract_meta()
+
+    def _extract_meta(self):
+        """ Определить отступы """
+        regex = r'^namespace ([^;{]*);'
+        file_scoped_namespace = re.search(regex, self.file_text, re.MULTILINE)
+        if file_scoped_namespace:
+            self.tabs = 4
+
+    def _get_base_entity(self):
+        """ Определить сущность в которую/от которой маппится vm/dto """
+        regex = r"IMap(?:From|To)<(.*)>"
+        if match := re.search(regex, self.file_text, re.MULTILINE):
+            entity_name = match.group(1)
+        else:
+            regex = r"profile\.CreateMap<(.*),(?:.*)>"
+            entity_name = re.search(regex, self.file_text, re.MULTILINE).group(1).removesuffix('Dto').removesuffix('Vm')
+
+        if entity_name not in self.used_entities_namespaces:
+            raise FileNotFoundError(f"No such entity: {entity_name}")
+
+        namespace = self.used_entities_namespaces.last_found
+        self.base_entity = EntityClass(namespace.path / f'{entity_name}.cs', filter_properties=False)
+
+    def add_properties_summaries(self):
+        """ Внести комментарии к свойствам vm/dto из базовой сущности """
+        class_body_lines = self._get_body_lines()
+        class_body_text = ''.join(class_body_lines)
+        regex = re.compile(r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?(?P<attributes>(?:\[.+]\s*)+)?\s*public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)")
+
+        matches = regex.finditer(class_body_text)
+
+        for match in matches:
+            if match.group('summary'):
+                continue
+            t = self.tabs
+            name = match.group('name')
+            prop: Optional[Property] = next(filter(lambda p: p.name == match.group('name'), self.base_entity.properties), None)
+            if prop and prop.summary or name == 'Id':
+                summary = prop.summary if prop else '/// Идентификатор'
+                added_summary = ' '*t + '/// <summary>\n' + ' '*t + summary + '\n' + ' '*t + '/// </summary>\n'
+                quantifier = f'{{{self.tabs}}}'
+                regex = rf"(?P<nl>}}\n)?(?P<emptylines>(?: {{,{self.tabs}}}\n)*)?(?: {quantifier})?(?P<attributes>(?:\[.+]\s*)+)?(?P<beginning> {quantifier}public [^\s]+\s)" + re.escape(name) + r'(?P<ending>.*)'
+                substituted = r'\g<nl>' + '\n' + added_summary + r'\g<beginning>' + name + r'\g<ending>'
+                if attrs := match.group('attributes'):
+                    attrs = attrs.strip()
+                    substituted = r'\g<nl>' + '\n' + added_summary + ' '*t + attrs + '\n' + r'\g<beginning>' + name + r'\g<ending>'
+                self.substituted_file_text = re.sub(regex, substituted, self.substituted_file_text)
+
+        self.substituted_file_text = re.sub(r'{\n\n', r'{\n', self.substituted_file_text)
+        self._write_substituted_file()
+
+    def add_class_summary(self):
+        """ Добавить описание классу vm/dto """
+        regex = rf'(?<!/// </summary>\n){" "*(self.tabs-4)}public class '
+        if re.search(regex, self.file_text, re.MULTILINE):
+            if summary := self.base_entity.class_summary:
+                if self.class_name.endswith('Vm'):
+                    summary = (f'{" "*(self.tabs-4)}/// <summary>\n'
+                               f'{" "*(self.tabs-4)}/// Модель отображения сущности "{summary}"\n'
+                               f'{" "*(self.tabs-4)}/// </summary>\n')
+                elif self.class_name.endswith('Dto'):
+                    summary = (f'{" "*(self.tabs-4)}/// <summary>\n'
+                               f'{" "*(self.tabs-4)}/// Объект передачи данных для сущности "{summary}"\n'
+                               f'{" "*(self.tabs-4)}/// </summary>\n')
+                substituted = summary + f'{" "*(self.tabs-4)}public class '
+                self.substituted_file_text = re.sub(regex, substituted, self.substituted_file_text)
+
+        self._write_substituted_file()
+
+    def _write_substituted_file(self):
+        with open(self.file_path, mode='w', encoding='utf-8') as file:
+            file.write(self.substituted_file_text)
+
+
+class EntityClass(BaseEntityClass):
+    """
+    Класс представления сущности.
+
+    Attributes:
+        properties: список извлеченных из сущности свойств типа Property
+        class_summary: summary самой сущности
+        upper_namespaces: коллекция NamespaceCollection для выявления расположения файлов-навигационных свойств сущности, не расположенных непосредственно в директории сущности
+        required_solution_namespaces: необходимые для декларирования в файлах vm/dto пространства имён
+        required_system_namespaces: необходимые для декларирования в файлах vm/dto пространства имён (системные)
+        included_files: набор классов FileClass для vm/dto, которые должны быть созданы помимо vm/dto основной сущности
+        pluralized_class_name: имя сущности в мн. числе (пр. "Appeals")
+    """
+    def __init__(self, path: Union[str, Path], factory_property: Optional[Property] = None, filter_properties: bool = True):
+        """
+        :param path: абсолютный путь до файла сущности
+        :param factory_property: навигационное свойство сущности, на основе которого был инициализирован класс
+        :param filter_properties: Отфильтровать свойства сущности в соответствии с флагами '!' и '@"
+        """
+        super().__init__(path)
+        self.factory_property = factory_property
+        self.namespace = None
+        self.enums_namespace = None
+        self.class_summary = None
+        self.upper_namespaces = NamespaceCollection()
+        self.used_entities_namespaces = NamespaceCollection()
+        self.required_solution_namespaces = NamespaceCollection()
+        self.required_system_namespaces = NamespaceCollection()
+        self.included_files: set[EntityClass] = set()
+
+        self.pluralized_class_name = pluralize(self.class_name)
+        str_path = str(path)
+        self.solution_path = Path(str_path[:str_path.index('Domain')])
+
+        self._get_class_summary()
+        self._index_self_namespace()
+        self._index_upper_namespaces()
+        self._index_used_namespaces()
+        self._extract_properties(filter_properties)
+        self._fill_required_namespaces()
+        self._calculate_included_files()
+
+    @property
+    def validation_properties(self):
+        return [p for p in self.properties if p.prop_type == 'string' or p.is_enum]
+
+    def __repr__(self):
+        return f'{self.class_name}, {id(self)}'
+
+    def _index_upper_namespaces(self):
+        namespace_parts = self.namespace.name.split('.')
+        prev_part = self.solution_name
+        for i in range(1, len(namespace_parts) - 1):
+            prev_part += '.' + namespace_parts[i]
+            namespace_obj = self._get_namespace_obj(prev_part)
+            self.upper_namespaces.add(namespace_obj)
+
+    def _get_class_summary(self):
+        """
+        Извлечь summary сущности
+        """
+        regex = r"/// <summary>\s*/// ((?:.|\n)*?)\s*/// </summary>\s*public class"
+        if match := re.search(regex, self.file_text, re.MULTILINE):
+            self.class_summary = match.group(1)
+
+    def _extract_properties(self, filter_properties: bool = False):
+        """
+        Извлечь свойства сущности и относящуюся к ним информацию
+        """
+        class_body_lines = self._get_body_lines()
+        class_body_text = ''.join(class_body_lines)
+        regex = re.compile(
+            r"(?:<summary>\s*(?P<summary>(?:.|\n)*?)\s*/// </summary>\s*)?(?P<attributes>(?:\[.+]\s*)+)?\s*public (?P<type>[^\s]+)\s(?P<name>[^\s]+)(?=\s\{ ?get;)")
+        matches = regex.finditer(class_body_text)
+
+        self.properties = [
+            Property(name=match.group('name'), _prop_type=match.group('type'), _summary=match.group('summary'),
+                     file_class=self)
+            for match in matches
+        ]
+
+        if filter_properties:
+            self.properties = list(filter(self.filter_property, self.properties))
 
     @staticmethod
     def filter_property(prop: Property) -> bool:
@@ -288,30 +430,7 @@ class FileClass:
 
         return not prop.is_navigation
 
-    def get_namespace_obj(self, namespace: str) -> Namespace:
-        """
-        Сформировать объект Namespace, вычисляя абсолютный путь до директории и все лежащие в ней классы
-        :param namespace: строка namespace
-        :return: Объект Namespace
-        """
-        directory = Path(self.solution_path) / namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
-        directory.mkdir(parents=True, exist_ok=True)
-        classes = (file.name.removesuffix('.cs') for file in directory.iterdir() if
-                   file.is_file() and file.name.endswith('.cs'))
-        return Namespace(name=namespace, classes=set(classes), path=directory)
-
-    def index_used_namespaces(self):
-        """
-        Вычислить объекты Namespace для использованных в коде сущности Namespace
-        """
-        regex = re.compile(r"using (" + re.escape(self.solution_name) + r"\.Domain\..*);")
-        matches = regex.finditer(self.file_text)
-        for match in matches:
-            namespace = match.group(1)
-            namespace_obj = self.get_namespace_obj(namespace)
-            self.used_entities_namespaces.add(namespace_obj)
-
-    def fill_required_namespaces(self):
+    def _fill_required_namespaces(self):
         """ Определить необходимые пространства имен для файлов vm/dto """
         for prop in self.properties:
             prop_type = prop.prop_type
@@ -340,12 +459,12 @@ class FileClass:
 
         self.required_solution_namespaces.add(self.namespace)
 
-    def calculate_included_files(self):
+    def _calculate_included_files(self):
         """ Сформировать объекты FileClass для каждого из навигационного свойства сущности """
         for prop in self.properties:
             if prop.is_navigation and prop.required_namespace:
                 if namespace_path := prop.required_namespace.path:
-                    file = FileClass(namespace_path / f'{prop.prop_type}.cs', factory_property=prop)
+                    file = EntityClass(namespace_path / f'{prop.prop_type}.cs', factory_property=prop)
                     self.included_files.add(file)
 
     def _create_template(self, target_namespace: str, template: str, for_update: bool, ientity: bool = False) -> File:
@@ -405,7 +524,7 @@ class Executor:
         changed_directories: директории, в которых сгенерированы файлы
         created_files_num: число сгенерированных файлов
     """
-    def __init__(self, obj: FileClass):
+    def __init__(self, obj: EntityClass):
         self.entity = obj
         self.target_application_namespace = None
         self.target_webui_namespace = None
@@ -463,12 +582,12 @@ class Executor:
 
         application_posix = application_path.as_posix()
         namespace_name = self.entity.solution_name + application_posix[application_posix.index('/Application'):].replace('/', '.')
-        self.target_application_namespace = self.entity.get_namespace_obj(namespace_name + f'.{self.entity.pluralized_class_name}')
+        self.target_application_namespace = self.entity._get_namespace_obj(namespace_name + f'.{self.entity.pluralized_class_name}')
 
         webui_posix = webui_path.as_posix()
         prefix = '/WebApi' if self.meta.webapi else '/WebUI'
         namespace_name = self.entity.solution_name + webui_posix[webui_posix.index(prefix):].replace('/', '.')
-        self.target_webui_namespace = self.entity.get_namespace_obj(namespace_name)
+        self.target_webui_namespace = self.entity._get_namespace_obj(namespace_name)
 
     def _extract_meta(self):
         """ Извлечь мета-информацию, необходимую для генерации """
@@ -483,16 +602,16 @@ class Executor:
         """ Сгенерировать и записать на диск CRUD сущности """
         namespace_outputs: list[tuple[Namespace, list[File], str, str, str]] = []
 
-        create_command_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Create{self.entity.class_name}')
-        update_command_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Update{self.entity.class_name}')
-        delete_command_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Delete{self.entity.class_name}')
+        create_command_namespace = self.entity._get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Create{self.entity.class_name}')
+        update_command_namespace = self.entity._get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Update{self.entity.class_name}')
+        delete_command_namespace = self.entity._get_namespace_obj(f'{self.target_application_namespace.name}.Commands.Delete{self.entity.class_name}')
 
         create_dto_outputs = self.entity.create_templates(create_command_namespace.name, self.dto_template, for_update=False)
         update_dto_outputs = self.entity.create_templates(update_command_namespace.name, self.dto_template, for_update=True)
 
-        get_entity_query_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Queries.Get{self.entity.class_name}')
-        get_entities_query_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Queries.Get{self.entity.pluralized_class_name}')
-        get_grid_query_namespace = self.entity.get_namespace_obj(f'{self.target_application_namespace.name}.Queries.Get{self.entity.class_name}Grid')
+        get_entity_query_namespace = self.entity._get_namespace_obj(f'{self.target_application_namespace.name}.Queries.Get{self.entity.class_name}')
+        get_entities_query_namespace = self.entity._get_namespace_obj(f'{self.target_application_namespace.name}.Queries.Get{self.entity.pluralized_class_name}')
+        get_grid_query_namespace = self.entity._get_namespace_obj(f'{self.target_application_namespace.name}.Queries.Get{self.entity.class_name}Grid')
 
         get_vm_outputs = self.entity.create_templates(get_entity_query_namespace.name, self.vm_template, ientity=True)
         get_list_vm_outputs = self.entity.create_templates(get_entities_query_namespace.name, self.vm_template)
