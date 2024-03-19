@@ -36,7 +36,7 @@ public class {{ command_name }} : IRequest<{{ return_value }}>
     /// </summary>
     {% if sieve %}
     public CustomSieveModel SieveModel { get; set; }
-    {% else %} 
+    {% else %}
     public DataSourceLoadOptions LoadOptions { get; set; }
     {% endif %}
 }

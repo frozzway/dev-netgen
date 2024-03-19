@@ -68,7 +68,7 @@ public class {{ file.class_name }}Controller : MediatorController
     /// Метод редактирования сущности "{{ file.class_summary }}"
     /// </summary>
     /// <param name="dto">Объект передачи данных</param>
-    [HttpPost]
+    [HttpPut]
     public async Task<ResultWithError> Update([FromBody] UpdateDto dto)
     {
         var command = new {{ update_namespace.last_name_part }}Command { Dto = dto };
