@@ -35,7 +35,7 @@ public class {{ command_handler }} : IRequestHandler<{{ command_name }}, long>
     {
         var entity = _mapper.Map<{{ file.class_name }}>(request.Dto);
 
-        await _context.{{ file.pluralized_class_name }}.AddAsync(entity);
+        await _context.{{ file.pluralized_class_name }}.AddAsync(entity, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return entity.Id;
