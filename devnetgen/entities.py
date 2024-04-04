@@ -381,9 +381,9 @@ class Entity(BaseEntity):
         """
         Извлечь summary сущности
         """
-        regex = r"/// <summary>\s*/// ((?:.|\n)*?)\s*/// </summary>\s*public class"
+        regex = r"/// <summary>\s*/// (?P<summary>(?:.|\n)*?)\s*/// </summary>\s*(?P<tags>(?:///.+>\s*)+)?(?P<attributes>(?:\[.+]\s*)+)?\s*public class"
         if match := re.search(regex, self.file_text, re.MULTILINE):
-            self.class_summary = match.group(1)
+            self.class_summary = match.group('summary')
 
     def _extract_properties(self, filter_properties: bool = False):
         """
