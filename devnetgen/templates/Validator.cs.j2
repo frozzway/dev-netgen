@@ -39,7 +39,7 @@ public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
                 {% endif %}
                 {% if p.prop_type == 'string' %}
                 i.RuleFor(j => j.{{ p.name }})
-                    .NotNull().NotEmpty();
+                    .NotNull().NotEmpty().WithMessage("Нельзя отправить пустое значение");
                 {% endif %}
                 {% if p.is_enum %}
                 i.RuleFor(j => j.{{ p.name }})
