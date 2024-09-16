@@ -192,9 +192,22 @@ class BaseEntity:
         regex = r"^namespace ([^;{]*)(?:;|\n)"
         namespace = re.search(regex, self.file_text, re.MULTILINE).group(1)
         namespace_parts = namespace.split('.')
-        self.solution_name = namespace_parts[0]
+        self.solution_name = self._find_sln_file(self.file_path) or namespace_parts[0]
         self.namespace = self._get_namespace_obj(namespace)
         self.enums_namespace = self._get_namespace_obj(f'{self.solution_name}.Domain.Enums')
+
+    @staticmethod
+    def _find_sln_file(start_path: Path):
+        current_path = start_path.resolve()
+
+        while True:
+            for file in current_path.glob('*.sln'):
+                return file.stem
+            if current_path.parent == current_path:
+                break
+            current_path = current_path.parent
+
+        return None
 
     def _get_namespace_obj(self, namespace: str) -> Namespace:
         """

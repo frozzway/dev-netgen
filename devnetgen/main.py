@@ -27,4 +27,4 @@ def add_summaries(path: str):
 
 
 #if __name__ == "__main__":
-    #add_summaries('/home/alex/Documents/RiderProjects/SystemsRegistryCore/Domain/Entities/InformationSystems/DatasetHystory.cs')
+    #create_crud('/home/alex/Documents/RiderProjects/Sport74/minsport/Domain/Entities/References/UnifiedCalendarPlan/Test.cs')
