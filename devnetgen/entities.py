@@ -69,7 +69,7 @@ class Property:
     @property
     def is_enum(self) -> bool:
         """ Проверка, является ли тип свойства перечислением """
-        return self.prop_type in self.file_class.enums_namespace.classes
+        return any(self.prop_type in namespace.classes for namespace in self.file_class.enums_namespaces)
 
     @property
     def raw_type(self) -> str:
@@ -143,7 +143,7 @@ class BaseEntity:
 
     Attributes:
         tabs: отступы перед 'public ...'
-        enums_namespace: объект типа Namespace под енамы
+        enums_namespaces: объекты типа Namespace под енамы
         file_path: абсолютный путь до файла сущности (объект Path)
         class_name: имя класса (пр. "Appeal")
         namespace: объект типа Namespace сущности
@@ -157,7 +157,7 @@ class BaseEntity:
         self.file_text = ''
         self.file_lines = None
         self.namespace = None
-        self.enums_namespace = None
+        self.enums_namespaces = None
         self.solution_name = None
         self.solution_path = None
         self.used_entities_namespaces = NamespaceCollection()
@@ -194,7 +194,7 @@ class BaseEntity:
         namespace_parts = namespace.split('.')
         self.solution_name = self._find_sln_file(self.file_path) or namespace_parts[0]
         self.namespace = self._get_namespace_obj(namespace)
-        self.enums_namespace = self._get_namespace_obj(f'{self.solution_name}.Domain.Enums')
+        self.enums_namespaces = self._index_enums_namespaces(f'{self.solution_name}.Domain.Enums')
 
     @staticmethod
     def _find_sln_file(start_path: Path):
@@ -208,6 +208,23 @@ class BaseEntity:
             current_path = current_path.parent
 
         return None
+
+    def _index_enums_namespaces(self, base_namespace: str) -> set[Namespace]:
+        """
+        Сформировать набор объектов Namespace для Enum'ов
+        :param base_namespace: пространство имен до корня директории с Enum'ами
+        :return: множество объектов Namespace для Enum'ов
+        """
+        namespaces: set[Namespace] = set()
+        base_enum_directory = Path(self.solution_path) / base_namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
+        enum_directories = [d for d in base_enum_directory.rglob('*') if d.is_dir()]
+        enum_directories.append(base_enum_directory)
+        for directory in enum_directories:
+            target_index = directory.parts.index('Enums')
+            sub_namespace = '.'.join(directory.parts[target_index + 1:])
+            namespace = base_namespace + '.' + sub_namespace
+            namespaces.add(self._get_namespace_obj(namespace))
+        return namespaces
 
     def _get_namespace_obj(self, namespace: str) -> Namespace:
         """
@@ -457,7 +474,8 @@ class Entity(BaseEntity):
                     prop.required_namespace = namespace
 
             if prop.is_enum:
-                self.required_solution_namespaces.add(self.enums_namespace)
+                required_enum_namespace = next(namespace for namespace in self.enums_namespaces if prop_type in namespace.classes)
+                self.required_solution_namespaces.add(required_enum_namespace)
 
         self.required_solution_namespaces.add(self.namespace)
 
