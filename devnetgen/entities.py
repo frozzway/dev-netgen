@@ -377,7 +377,11 @@ class Entity(BaseEntity):
 
     @property
     def validation_properties(self):
-        return [p for p in self.properties if p.prop_type == 'string' or p.is_enum]
+        return [p for p in self.properties if any([
+            p.prop_type == 'string',
+            p.is_enum,
+            p.prop_type in ['long', 'string'] and p.name.endswith('Id')
+        ])]
 
     def __repr__(self):
         return f'{self.class_name}, {id(self)}'
