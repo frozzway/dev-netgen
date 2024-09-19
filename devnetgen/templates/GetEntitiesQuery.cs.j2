@@ -15,11 +15,11 @@ namespace {{ target_namespace }};
 /// <summary>
 /// Запрос на получение списка сущностей "{{ file.class_summary }}"
 /// </summary>
-public class {{ command_name }} : IRequest<IList<{{ Vm }}>>
+public class {{ command_name }} : IRequest<List<{{ Vm }}>>
 {
 }
 
-public class {{ command_handler }} : IRequestHandler<{{ command_name }}, IList<{{ Vm }}>>
+public class {{ command_handler }} : IRequestHandler<{{ command_name }}, List<{{ Vm }}>>
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
@@ -30,7 +30,7 @@ public class {{ command_handler }} : IRequestHandler<{{ command_name }}, IList<{
         _mapper = mapper;
     }
 
-    public async {{ return_value }}<IList<{{ Vm }}>> Handle({{ command_name }} request, CancellationToken cancellationToken)
+    public async {{ return_value }}<List<{{ Vm }}>> Handle({{ command_name }} request, CancellationToken cancellationToken)
     {
         var list = await _context.{{ file.pluralized_class_name }}
             .ProjectTo<{{ Vm }}>(_mapper.ConfigurationProvider)
