@@ -12,7 +12,7 @@ from devnetgen.pluralize import pluralize
 
 system_namespace = 'System'
 generic_collections_namespace = 'System.Collections.Generic'
-default_properties = {'int', 'bool', 'float', 'string', 'decimal', 'long', 'DateTime', 'double'}
+default_properties = {'int', 'bool', 'float', 'string', 'decimal', 'long', 'short', 'DateTime', 'double'}
 
 
 @dataclass
