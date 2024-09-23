@@ -12,7 +12,9 @@ from devnetgen.pluralize import pluralize
 
 system_namespace = 'System'
 generic_collections_namespace = 'System.Collections.Generic'
-default_properties = {'int', 'bool', 'float', 'string', 'decimal', 'long', 'short', 'DateTime', 'double'}
+default_properties = {'int', 'bool', 'float', 'string', 'decimal', 'long', 'short', 'double'}
+system_properties = {'DateTime', 'DateOnly', 'DateTimeOffset'}
+default_properties.update(system_properties)
 
 
 @dataclass
@@ -457,7 +459,7 @@ class Entity(BaseEntity):
             if prop.is_list_generic:
                 self.required_system_namespaces.add(Namespace(generic_collections_namespace))
 
-            if prop_type == 'DateTime':
+            if prop_type in system_properties:
                 self.required_system_namespaces.add(Namespace(system_namespace))
 
             if prop.is_navigation:
