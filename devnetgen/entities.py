@@ -78,6 +78,18 @@ class Property:
         return self._prop_type
 
     @property
+    def is_nullable(self) -> bool:
+        return self._prop_type.endswith('?') or self.non_listed_prop_type.endswith('?')
+
+    @property
+    def to_validate(self) -> bool:
+        return any([
+            self.is_enum,
+            self.prop_type == 'string',
+            all([not self.is_nullable, self.prop_type == 'long', self.name.endswith('Id')])
+        ])
+
+    @property
     def is_list_generic(self) -> bool:
         return self._prop_type.startswith("List<")
 
@@ -396,11 +408,7 @@ class Entity(BaseEntity):
 
     @property
     def validation_properties(self):
-        return [p for p in self.properties if any([
-            p.prop_type == 'string',
-            p.is_enum,
-            p.prop_type in ['long', 'string'] and p.name.endswith('Id')
-        ])]
+        return [p for p in self.properties if p.to_validate]
 
     def __repr__(self):
         return f'{self.class_name}, {id(self)}'

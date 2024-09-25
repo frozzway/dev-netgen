@@ -12,13 +12,20 @@ public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
     {% if loop.index >= 2 %}
 
     {% endif %}
-    {% if not p.is_enum %}
+    {% if not p.is_enum and not p.is_nullable %}
         RuleFor(i => i.Dto.{{ p.name }})
             .NotNull().NotEmpty();
-    {% endif %}
-    {% if p.is_enum %}
+    {% elif p.is_enum %}
+        {% if not p.is_nullable %}
         RuleFor(i => i.Dto.{{ p.name }})
             .IsInEnum();
+        {% else %}
+        When(i => i.Dto.{{ p.name }} is not null, () =>
+        {
+            RuleFor(i => i.Dto.{{ p.name }})
+                .IsInEnum();
+        });
+        {% endif %}
     {% endif %}
     {% endfor %}
     {% for f in file.included_files %}
@@ -37,13 +44,20 @@ public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
                 {% if loop.index >= 2 %}
 
                 {% endif %}
-                {% if not p.is_enum %}
-                i.RuleFor(j => j.{{ p.name }})
-                    .NotNull().NotEmpty().WithMessage("Нельзя отправить пустое значение");
-                {% endif %}
-                {% if p.is_enum %}
-                i.RuleFor(j => j.{{ p.name }})
-                    .IsInEnum();
+                {% if not p.is_enum and not p.is_nullable %}
+                    i.RuleFor(j => j.Dto.{{ p.name }})
+                        .NotNull().NotEmpty();
+                {% elif p.is_enum %}
+                    {% if not p.is_nullable %}
+                    i.RuleFor(j => j.Dto.{{ p.name }})
+                        .IsInEnum();
+                    {% else %}
+                    When(t => t.Dto.{{ p.name }} is not null, () =>
+                    {
+                        i.RuleFor(j => j.{{ p.name }})
+                            .IsInEnum();
+                    });
+                    {% endif %}
                 {% endif %}
                 {% endfor %}
             });
