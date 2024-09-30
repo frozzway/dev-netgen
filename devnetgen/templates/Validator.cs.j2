@@ -14,7 +14,7 @@ public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
     {% endif %}
     {% if not p.is_enum and not p.is_nullable %}
         RuleFor(i => i.Dto.{{ p.name }})
-            .NotNull().NotEmpty();
+            .NotEmpty();
     {% elif p.is_enum %}
         {% if not p.is_nullable %}
         RuleFor(i => i.Dto.{{ p.name }})
@@ -46,7 +46,7 @@ public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
                 {% endif %}
                 {% if not p.is_enum and not p.is_nullable %}
                     i.RuleFor(j => j.{{ p.name }})
-                        .NotNull().NotEmpty();
+                        .NotEmpty();
                 {% elif p.is_enum %}
                     {% if not p.is_nullable %}
                     i.RuleFor(j => j.{{ p.name }})
