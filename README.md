@@ -35,10 +35,18 @@ public string Data { get; set; }
 
 ## Установка
 
-#### Установить python пакет (python >= 3.10)
+#### Установить python 3.10
 
+```shell
+sudo apt install software-properties-common -y
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install python3.10
 ```
-pip install devnetgen
+
+#### Установить python пакет (python >= 3.10) с помощью [pipx](https://pipx.pypa.io/stable/installation/#installing-pipx)
+
+```shell
+pipx install devnetgen
 ```
 
 #### Установить плагин в IDE
@@ -55,10 +63,10 @@ pip install devnetgen
 - `Сгенерировать CRUD на legacy controller`
 - `Сгенерировать <summary> в файле(-ах) Vm/Dto на основе сущности`
 #### Через консоль
-```
+```shell
 dev-netgen all [path/to/entity.cs] --legacy-controller
 ```
 
-```
+```shell
 dev-netgen summary [path/to/class_or_entity.cs]
 ```
