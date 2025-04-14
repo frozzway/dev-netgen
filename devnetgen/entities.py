@@ -207,7 +207,7 @@ class BaseEntity:
         namespace = re.search(regex, self.file_text, re.MULTILINE).group(1)
         namespace_parts = namespace.split('.')
         self.solution_name = self._find_sln_file(self.file_path) or namespace_parts[0]
-        self.namespace = self._get_namespace_obj(namespace)
+        self.namespace = self.get_namespace_obj(namespace)
         self.enums_namespaces = self._index_enums_namespaces(f'{self.solution_name}.Domain.Enums')
 
     @staticmethod
@@ -237,10 +237,10 @@ class BaseEntity:
             target_index = directory.parts.index('Enums')
             sub_namespace = '.'.join(directory.parts[target_index + 1:])
             namespace = base_namespace + '.' + sub_namespace
-            namespaces.add(self._get_namespace_obj(namespace))
+            namespaces.add(self.get_namespace_obj(namespace))
         return namespaces
 
-    def _get_namespace_obj(self, namespace: str) -> Namespace:
+    def get_namespace_obj(self, namespace: str) -> Namespace:
         """
         Сформировать объект Namespace, вычисляя абсолютный путь до директории и все лежащие в ней классы
         :param namespace: строка namespace
@@ -260,7 +260,7 @@ class BaseEntity:
         matches = regex.finditer(self.file_text)
         for match in matches:
             namespace = match.group(1)
-            namespace_obj = self._get_namespace_obj(namespace)
+            namespace_obj = self.get_namespace_obj(namespace)
             self.used_entities_namespaces.add(namespace_obj)
 
     def _extract_tabs(self):
@@ -418,7 +418,7 @@ class Entity(BaseEntity):
         prev_part = self.solution_name
         for i in range(1, len(namespace_parts) - 1):
             prev_part += '.' + namespace_parts[i]
-            namespace_obj = self._get_namespace_obj(prev_part)
+            namespace_obj = self.get_namespace_obj(prev_part)
             self.upper_namespaces.add(namespace_obj)
 
     def _get_class_summary(self):
@@ -496,43 +496,6 @@ class Entity(BaseEntity):
                 if namespace_path := prop.required_namespace.path:
                     file = Entity(namespace_path / f'{prop.prop_type}.cs', factory_property=prop)
                     self.included_files.add(file)
-
-    def _create_template(self, target_namespace: str, template: str, for_update: bool, ientity: bool = False) -> File:
-        """
-        Сформировать vm/dto по шаблону
-        :param target_namespace: пространство имен сформированной vm/dto
-        :param template: шаблон vm/dto
-        :param for_update: флаг для передачи в шаблон, dto для редактирования сущности
-        :param ientity: флаг для передачи в шаблон, реализация интерфейса IEntityWithId у VM
-        :return: объект типа File с наименованием и содержанием vm/dto
-        """
-        template = env.get_template(template)
-        output = template.render(
-            file=self,
-            target_namespace=target_namespace,
-            for_update=for_update,
-            ientity=ientity)
-        return File(self.class_name, output)
-
-    def create_templates(self, target_namespace: str, template: str, for_update: bool = False, ientity: bool = False) -> list[File]:
-        """
-        Сформировать vm/dto по шаблону для исходной и навигационных сущностей
-        :param target_namespace: пространство имен сформированной vm/dto
-        :param template: шаблон vm/dto
-        :param for_update: флаг для передачи в шаблон, dto для редактирования сущности
-        :param ientity: флаг для передачи в шаблон, реализация интерфейса IEntityWithId у VM
-        :return: список объектов типа File с наименованиями и содержаниями vm/dto
-        """
-        storage = []
-        self._recursive_create_templates(target_namespace, template, for_update, storage)
-        storage[0] = self._create_template(target_namespace, template, for_update, ientity)
-        return storage
-
-    def _recursive_create_templates(self, target_namespace: str, template: str, for_update: bool, storage: list):
-        self_template = self._create_template(target_namespace, template, for_update)
-        storage.append(self_template)
-        for file in self.included_files:
-            file._recursive_create_templates(target_namespace, template, for_update, storage)
 
     def clear_summaries_flags(self):
         """ Очистить '!' и '@' из summaries свойств сущности """

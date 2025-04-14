@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "devnetgen"
-version = "0.2.7.4"
+version = "0.2.8"
 description = ""
 authors = ["Александр Окунев <a.okunev@mininform74.ru>"]
 readme = "README.md"
@@ -10,8 +10,8 @@ dev-netgen = "devnetgen.main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-typer = {extras = ["all"], version = "^0.9.0"}
-jinja2 = "^3.1.3"
+typer = "^0.15.2"
+jinja2 = "^3.1.6"
 
 
 [build-system]

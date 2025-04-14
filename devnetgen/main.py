@@ -24,7 +24,3 @@ def add_summaries(path: str):
         entity = Entity(path)
         executor = SummariesExecutor(entity)
         executor.add_summaries()
-
-
-#if __name__ == "__main__":
-    #create_crud('/home/alex/Documents/RiderProjects/Sport74/minsport/Domain/Entities/References/UnifiedCalendarPlan/UnifiedCalendarPlanSection.cs')

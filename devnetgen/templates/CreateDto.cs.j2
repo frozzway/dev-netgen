@@ -1,26 +1,19 @@
-{% for namespace in file.required_system_namespaces %}
+{% for namespace in entity.required_system_namespaces %}
 using {{ namespace.name }};
 {% endfor %}
-using {{ file.solution_name }}.Application.Common.Mappings;
-{% for namespace in file.required_solution_namespaces %}
+using {{ entity.solution_name }}.Application.Common.Mappings;
+{% for namespace in entity.required_solution_namespaces %}
 using {{ namespace.name }};
 {% endfor %}
 
 namespace {{ target_namespace }};
 
 /// <summary>
-/// Объект передачи данных для {% if for_update %}редактирования{% else %}создания{% endif %} сущности "{{ file.class_summary }}"
+/// Объект передачи данных для создания сущности "{{ entity.class_summary }}"
 /// </summary>
-public class {{ file.class_name }}Dto : IMapTo<{{ file.class_name }}>
+public class {{ entity.class_name }}Dto : IMapTo<{{ entity.class_name }}>
 {
-    {% if for_update %}
-    /// <summary>
-    /// Идентификатор
-    /// </summary>
-    public long Id { get; set; }
-
-    {% endif %}
-{% for p in file.properties %}
+{% for p in entity.properties %}
     {% if loop.index >= 2 %}
 
     {% endif %}
