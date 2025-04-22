@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from devnetgen.executors import CrudExecutor
 
 from devnetgen.config import env
-from devnetgen.constructors.base_constructors import Constructor
+from devnetgen.constructors.base_crud_constructors import Constructor
 
 
 class ControllerConstructor(Constructor):

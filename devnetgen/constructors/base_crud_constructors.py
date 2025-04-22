@@ -4,29 +4,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from devnetgen.executors import CrudExecutor
 
+from devnetgen.constructors.constructor import Constructor
 from devnetgen.config import env
 from devnetgen.entities import Entity, Namespace, File
-
-
-class Constructor:
-    __abstract__ = True
-
-    def create_files(self) -> None:
-        raise NotImplementedError()
-
-    def __init__(self, executor: CrudExecutor):
-        if self.__class__.__dict__.get('__abstract__', False):
-            raise TypeError(f"Class {self.__class__.__name__} is abstract and cannot be instantiated")
-        self.entity = executor.entity
-        self.executor = executor
-
-    def _create_file_if_not_exists(self, namespace: Namespace, filename: str, content: str) -> None:
-        filepath = namespace.path / filename
-        if filepath.exists():
-            return
-        with open(filepath, "w", encoding='utf-8') as file:
-            file.write(content)
-            self.executor.log_directory(namespace)
 
 
 class CRUDConstructor(Constructor):
@@ -47,16 +27,6 @@ class CRUDConstructor(Constructor):
         'name', 'command_template', 'namespace_identifier', 'namespace_prefix', 'command_suffix', 'model_suffix'
     )
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-
-        if getattr(cls, '__abstract__', False):
-            return
-
-        missing = [field for field in cls.__required_fields__ if not hasattr(cls, field)]
-        if missing:
-            raise TypeError(f"Class {cls.__name__} is missing required class attributes: {missing}")
-
     def __init__(self, executor: CrudExecutor):
         super().__init__(executor)
         if self.requires_models and not hasattr(self.__class__, 'model_template'):
@@ -66,7 +36,7 @@ class CRUDConstructor(Constructor):
     def namespace(self) -> Namespace:
         """Вернуть пространство имени для генерируемых файлов"""
         namespace_string = f'{self.executor.application_namespace.name}.{self.namespace_prefix}.{self.name}{self.entity.class_name}'
-        return self.entity.get_namespace_obj(namespace_string)
+        return self.entity.get_namespace_obj(namespace_string, for_tests=False)
 
     def create_files(self) -> None:
         self.namespace.path.mkdir(parents=True, exist_ok=True)

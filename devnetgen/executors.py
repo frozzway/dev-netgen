@@ -35,12 +35,18 @@ class Executor:
         solution_name: наименование решения (пр. "MinstroyGasDistributionNetworks")
         solution_path: абсолютный путь решения, объект Path (пр. "/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks")
     """
-    def __init__(self, solution_path, solution_name):
-        self.solution_path = solution_path
-        self.solution_name = solution_name
+    meta: SolutionMeta
+    changed_directories: set[Path | str]
+    changed_files_num: int
+    solution_name: str
+    solution_path: Path
+
+    def __init__(self, solution_path: Path, solution_name: str):
         self.meta = SolutionMeta()
         self.changed_directories = set()
         self.changed_files_num = 0
+        self.solution_name = solution_name
+        self.solution_path = solution_path
 
     def _extract_meta(self):
         """ Извлечь мета-информацию, необходимую для генерации """
@@ -62,44 +68,43 @@ class CrudExecutor(Executor):
     Класс с методами для создания CRUD'а и файла контроллера сущности
 
     Attributes:
-        entity: сущность типа FileClass для которой создаются элементы
+        entity: сущность для которой создаются элементы
         application_namespace: неполный (базовый) объект Namespace /Application/Work/..
         webui_namespace: неполный (базовый) объект Namespace /Application/Work/..
         command_namespaces: пространства имен команд и запросов
     """
+    entity: Entity
+    application_namespace: Namespace
+    webui_namespace: Namespace
+    command_namespaces: dict[str, Namespace]
 
     def __init__(self, entity: Entity):
-        super().__init__(entity.solution_path, entity.solution_name)
+        super().__init__(entity.sources_path, entity.solution_name)
 
         self.entity = entity
-        self.application_namespace = None
-        self.webui_namespace = None
         self.command_namespaces = {}
 
-        self.controller_template = 'Controller.cs.j2'
-        self.legacy_controller_template = 'LegacyController.cs.j2'
-
-    def create_all(self, legacy_controller: bool = False):
+    def create_crud(self, legacy_controller: bool = False):
         """
         Сгенерировать и записать на диск CRUD, файл контроллера и вывести результат в stdout
         :param legacy_controller: флаг для генерации файла контроллера в legacy проектах
         """
         self._extract_meta()
         self._calculate_namespaces()
-        self._create_files(legacy_controller)
+        self._create_crud_files(legacy_controller)
         self.cleanup_files()
         self.output_data()
 
     def _calculate_namespaces(self):
         """ Определить базовые директории генерации файлов и соответствующие неполные неймспейсы"""
-        controller_path = next(self.entity.solution_path.glob('**/Controllers'))
+        controller_path = next(self.entity.sources_path.glob('**/Controllers'))
 
         if match := re.search("^.*References?(.*)", self.entity.namespace.name):
             target = match.group(1)
 
-            application_path_results = tuple((self.entity.solution_path / 'Application').glob('**/References'))
+            application_path_results = tuple((self.entity.sources_path / 'Application').glob('**/References'))
             if len(application_path_results) == 0:
-                application_path_results = tuple((self.entity.solution_path / 'Application').glob('**/Reference'))
+                application_path_results = tuple((self.entity.sources_path / 'Application').glob('**/Reference'))
             application_path = application_path_results[0] / target.removeprefix('.').replace('.', '/')
 
             webui_path_results = tuple(controller_path.glob('**/References'))
@@ -110,7 +115,7 @@ class CrudExecutor(Executor):
         else:
             target = re.search("^.*Entities(.*)", self.entity.namespace.name).group(1)
 
-            application_path = self.entity.solution_path / 'Application' / 'Work' / target.removeprefix('.').replace('.', '/')
+            application_path = self.entity.sources_path / 'Application' / 'Work' / target.removeprefix('.').replace('.', '/')
             webui_path = controller_path / 'Work' / target.removeprefix('.').replace('.', '/')
 
         application_posix = application_path.as_posix()
@@ -122,7 +127,7 @@ class CrudExecutor(Executor):
         namespace_name = self.entity.solution_name + webui_posix[webui_posix.index(prefix):].replace('/', '.')
         self.webui_namespace = self.entity.get_namespace_obj(namespace_name)
 
-    def _create_files(self, legacy_controller: bool):
+    def _create_crud_files(self, legacy_controller: bool):
         """ Сгенерировать и записать на диск CRUD сущности и файл контроллера"""
         constructors: list[CRUDConstructor] = [
             CreateConstructor(self),
@@ -170,9 +175,9 @@ class CrudExecutor(Executor):
 
 
 class SummariesExecutor(Executor):
-    def __init__(self, obj: Entity):
-        super().__init__(obj.solution_path, obj.solution_name)
-        self.entity = obj
+    def __init__(self, entity: Entity):
+        super().__init__(entity.sources_path, entity.solution_name)
+        self.entity = entity
 
     def add_summaries(self):
         application_path = self.solution_path / 'Application'

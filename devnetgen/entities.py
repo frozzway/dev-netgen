@@ -7,7 +7,6 @@ from typing import Optional
 from collections.abc import Set
 from typing import Union
 
-from devnetgen.config import env
 from devnetgen.pluralize import pluralize
 
 system_namespace = 'System'
@@ -157,25 +156,31 @@ class BaseEntity:
 
     Attributes:
         tabs: отступы перед 'public ...'
-        enums_namespaces: объекты типа Namespace под енамы
+        file_text: содержимое файла сущности
+        file_lines: содержимое файла сущности построчно
         file_path: абсолютный путь до файла сущности (объект Path)
         class_name: имя класса (пр. "Appeal")
         namespace: объект типа Namespace сущности
+        enums_namespaces: объекты типа Namespace под енамы
         solution_name: наименование решения (пр. "MinstroyGasDistributionNetworks")
-        solution_path: абсолютный путь решения, объект Path (пр. "/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks")
+        sources_path: абсолютный путь решения, объект Path (пр. "/home/alex/Documents/RiderProjects/MinstroyGasDistributionNetworks")
         used_entities_namespaces: использованные в коде сущности пространства имён, относящиеся к сущностям в Domain
         properties: список извлеченных из класса свойств типа Property
     """
-    def __init__(self, path: Union[str, Path]):
-        self.tabs = 8
-        self.file_text = ''
-        self.file_lines = None
-        self.namespace = None
-        self.enums_namespaces = None
-        self.solution_name = None
-        self.solution_path = None
+    tabs: int = 8
+    file_text: str
+    file_lines: list[str]
+    file_path: Path
+    class_name: str
+    namespace: Namespace
+    enums_namespaces: set[Namespace]
+    solution_name: str
+    sources_path: Path
+    used_entities_namespaces: NamespaceCollection
+    properties: list[Property]
+
+    def __init__(self, path: str | Path):
         self.used_entities_namespaces = NamespaceCollection()
-        self.properties: Optional[list[Property]] = None
 
         self.file_path = Path(path)
         self.class_name = self.file_path.name.removesuffix('.cs')
@@ -226,11 +231,11 @@ class BaseEntity:
     def _index_enums_namespaces(self, base_namespace: str) -> set[Namespace]:
         """
         Сформировать набор объектов Namespace для Enum'ов
-        :param base_namespace: пространство имен до корня директории с Enum'ами
+        :param base_namespace: пространство имен до корня директории с Enums
         :return: множество объектов Namespace для Enum'ов
         """
         namespaces: set[Namespace] = set()
-        base_enum_directory = Path(self.solution_path) / base_namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
+        base_enum_directory = Path(self.sources_path) / base_namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
         enum_directories = [d for d in base_enum_directory.rglob('*') if d.is_dir()]
         enum_directories.append(base_enum_directory)
         for directory in enum_directories:
@@ -240,17 +245,29 @@ class BaseEntity:
             namespaces.add(self.get_namespace_obj(namespace))
         return namespaces
 
-    def get_namespace_obj(self, namespace: str) -> Namespace:
+    def get_namespace_obj(self, namespace: str, for_tests: bool = False) -> Namespace:
         """
         Сформировать объект Namespace, вычисляя абсолютный путь до директории и все лежащие в ней классы
         :param namespace: строка namespace
+        :param for_tests: вычисление для генерации тестов
         :return: Объект Namespace
         """
-        directory = Path(self.solution_path) / namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
+        root_dir = self.sources_path if not for_tests else self.tests_path
+        end_dir = namespace.removeprefix(f'{self.solution_name}.').replace('.', '/')
+        if for_tests:
+            end_dir = end_dir.replace("Application/IntegrationTests", "Application.IntegrationTests")
+        directory = Path(root_dir) / end_dir
         directory.mkdir(parents=True, exist_ok=True)
         classes = (file.name.removesuffix('.cs') for file in directory.iterdir() if
                    file.is_file() and file.name.endswith('.cs'))
         return Namespace(name=namespace, classes=set(classes), path=directory)
+
+    @property
+    def tests_path(self) -> Path:
+        return Path(self.sources_path.as_posix()
+                    .replace("src", "tests")
+                    .replace("source", "tests")
+                    .replace("sources", "tests"))
 
     def _index_used_namespaces(self):
         """
@@ -279,14 +296,15 @@ class VmDto(BaseEntity):
         base_entity: сущность в которую/от которой маппится vm/dto
         substituted_file_text: замененный текст файла на содержащий summaries
     """
+    base_entity: Entity
+    substituted_file_text: str
+
     def __init__(self, path: Union[str, Path]):
         super().__init__(path)
-
-        self.base_entity: Optional[Entity] = None
         self.substituted_file_text = self.file_text
 
         str_path = str(path)
-        self.solution_path = Path(str_path[:str_path.index('Application')])
+        self.sources_path = Path(str_path[:str_path.index('Application')])
 
         self._index_self_namespace()
         self._index_used_namespaces()
@@ -367,15 +385,26 @@ class Entity(BaseEntity):
     Класс представления сущности.
 
     Attributes:
-        properties: список извлеченных из сущности свойств типа Property
-        class_summary: summary самой сущности
-        upper_namespaces: коллекция NamespaceCollection для выявления расположения файлов-навигационных свойств сущности, не расположенных непосредственно в директории сущности
+        class_summary: summary сущности
+        upper_namespaces: коллекция NamespaceCollection для выявления расположения файлов-навигационных свойств
+         сущности, не расположенных непосредственно в директории сущности
         required_solution_namespaces: необходимые для декларирования в файлах vm/dto пространства имён
         required_system_namespaces: необходимые для декларирования в файлах vm/dto пространства имён (системные)
         included_files: набор классов FileClass для vm/dto, которые должны быть созданы помимо vm/dto основной сущности
         pluralized_class_name: имя сущности в мн. числе (пр. "Appeals")
     """
-    def __init__(self, path: Union[str, Path], factory_property: Optional[Property] = None, filter_properties: bool = True, vm: Optional[VmDto] = None):
+    class_summary: str
+    factory_property: Property | None
+    vm: VmDto | None
+    upper_namespaces: NamespaceCollection
+    used_entities_namespaces: NamespaceCollection
+    required_solution_namespaces: NamespaceCollection
+    required_system_namespaces: NamespaceCollection
+    included_files: set[Entity]
+    pluralized_class_name: str
+
+    def __init__(self, path: Union[str, Path], factory_property: Property = None,
+                 filter_properties: bool = True, vm: VmDto = None):
         """
         :param path: абсолютный путь до файла сущности
         :param factory_property: навигационное свойство сущности, на основе которого был инициализирован класс
@@ -385,9 +414,6 @@ class Entity(BaseEntity):
         super().__init__(path)
         self.vm = vm
         self.factory_property = factory_property
-        self.namespace = None
-        self.enums_namespace = None
-        self.class_summary = None
         self.upper_namespaces = NamespaceCollection()
         self.used_entities_namespaces = NamespaceCollection()
         self.required_solution_namespaces = NamespaceCollection()
@@ -396,7 +422,7 @@ class Entity(BaseEntity):
 
         self.pluralized_class_name = pluralize(self.class_name)
         str_path = str(path)
-        self.solution_path = Path(str_path[:str_path.index('Domain')])
+        self.sources_path = Path(str_path[:str_path.index('Domain')])
 
         self._get_class_summary()
         self._index_self_namespace()

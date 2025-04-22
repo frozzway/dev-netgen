@@ -11,7 +11,7 @@ app = typer.Typer()
 def create_crud(path: str, legacy_controller: bool = False):
     entity = Entity(path)
     executor = CrudExecutor(entity)
-    executor.create_all(legacy_controller=legacy_controller)
+    executor.create_crud(legacy_controller=legacy_controller)
 
 
 @app.command(name='summary')

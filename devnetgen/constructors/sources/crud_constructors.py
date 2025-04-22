@@ -1,5 +1,5 @@
 from devnetgen.entities import Namespace
-from devnetgen.constructors.base_constructors import CommandConstructor, QueryConstructor
+from devnetgen.constructors.base_crud_constructors import CommandConstructor, QueryConstructor
 
 
 class CreateConstructor(CommandConstructor):
