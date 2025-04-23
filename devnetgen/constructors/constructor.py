@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from devnetgen.executors import CrudExecutor
+    from devnetgen.executors import SourceGeneratorExecutor
     from devnetgen.entities import Namespace
 
 
@@ -23,7 +23,7 @@ class Constructor:
         if missing:
             raise TypeError(f"Class {cls.__name__} is missing required class attributes: {missing}")
 
-    def __init__(self, executor: CrudExecutor):
+    def __init__(self, executor: SourceGeneratorExecutor):
         if self.__class__.__dict__.get('__abstract__', False):
             raise TypeError(f"Class {self.__class__.__name__} is abstract and cannot be instantiated")
         self.entity = executor.entity

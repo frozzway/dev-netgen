@@ -1,17 +1,23 @@
 import typer
 
 from devnetgen.entities import Entity, VmDto
-from devnetgen.executors import CrudExecutor, SummariesExecutor
-
+from devnetgen.executors import CrudExecutor, SummariesExecutor, TestsExecutor
 
 app = typer.Typer()
 
 
-@app.command(name='all')
+@app.command(name='crud')
 def create_crud(path: str, legacy_controller: bool = False):
     entity = Entity(path)
     executor = CrudExecutor(entity)
     executor.create_crud(legacy_controller=legacy_controller)
+
+
+@app.command(name='tests')
+def create_tests(path: str):
+    entity = Entity(path)
+    executor = TestsExecutor(entity)
+    executor.create_tests()
 
 
 @app.command(name='summary')

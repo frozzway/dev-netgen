@@ -42,7 +42,7 @@ public class {{ class_name }} : TestBase
         dto.Should().BeEquivalentTo(entity, options => options
             .IncludingAllDeclaredProperties()
             .ExcludingNestedObjects()
-            .Excluding(i => i.Id)
+            .Excluding(i => i.Id));
     }
 
     [TestCaseSource(nameof({{ validation_testcases_name }}))]
