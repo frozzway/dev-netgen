@@ -1,0 +1,30 @@
+{% set class_name = 'Delete' + entity.class_name + 'CommandTests' %}
+{% set command_name = 'Delete' + entity.class_name + 'Command' %}
+{% set success_test_name = 'ShouldDelete' + entity.class_name %}
+using {{ delete_namespace.name }};
+using {{ entity.namespace.name }};
+
+namespace {{ target_namespace }};
+
+using static Testing;
+
+/// <summary>
+/// Тесты для команды удаления сущности "{{ entity.class_summary }}"
+/// </summary>
+public class {{ class_name }} : {{ entity.class_name }}Base
+{
+    [Test]
+    public async Task {{ success_test_name }}()
+    {
+        var entity = await Create{{ entity.class_name }}OnDb();
+
+        // Act
+        await RunAsDefaultUserAsync();
+        var command = new {{ command_name }} { Id = entity.Id };
+        await FluentActions.Invoking(async () => await SendAsync(command)).Should().NotThrowAsync();
+
+        // Assert
+        var item = await FindAsync<{{ entity.class_name }}>(entity.Id);
+        item.Should().BeNull();
+    }
+}

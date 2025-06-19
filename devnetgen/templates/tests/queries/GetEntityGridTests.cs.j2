@@ -1,0 +1,32 @@
+{% set class_name = 'Get' + entity.class_name + 'GridQueryTests' %}
+{% set command_name = 'Get' + entity.class_name + 'GridQuery' %}
+{% set success_test_name = 'ShouldGet' + entity.class_name + 'Grid' %}
+using {{ get_grid_namespace.name }};
+
+namespace {{ target_namespace }};
+
+using static Testing;
+
+/// <summary>
+/// Тесты для запроса на получение таблицы сущности "{{ entity.class_summary }}"
+/// </summary>
+public class {{ class_name }} : {{ entity.class_name }}Base
+{
+    [Test]
+    public async Task {{ success_test_name }}()
+    {
+        var entity = await Create{{ entity.class_name }}OnDb();
+
+        // Act
+        await RunAsDefaultUserAsync();
+        var query = new {{ command_name }} { SieveModel = new CustomSieveModel() };
+        var wrapper = await FluentActions.Invoking(async () => await SendAsync(query)).Should().NotThrowAsync();
+        var item = wrapper.Subject.Data.ElementAt(0);
+
+        // Assert
+        item.Should().NotBeNull();
+        item.Should().BeEquivalentTo(entity, options =>
+            options.ExcludingMissingMembers()
+        );
+    }
+}

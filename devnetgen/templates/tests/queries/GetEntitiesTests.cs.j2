@@ -1,0 +1,32 @@
+{% set class_name = 'Get' + entity.pluralized_class_name + 'QueryTests' %}
+{% set command_name = 'Get' + entity.pluralized_class_name + 'Query' %}
+{% set success_test_name = 'ShouldGet' + entity.pluralized_class_name %}
+using {{ get_list_namespace.name }};
+
+namespace {{ target_namespace }};
+
+using static Testing;
+
+/// <summary>
+/// Тесты для запроса на получение списка сущности "{{ entity.class_summary }}"
+/// </summary>
+public class {{ class_name }} : {{ entity.class_name }}Base
+{
+    [Test]
+    public async Task {{ success_test_name }}()
+    {
+        var entity = await Create{{ entity.class_name }}OnDb();
+
+        // Act
+        await RunAsDefaultUserAsync();
+        var query = new {{ command_name }}();
+        var wrapper = await FluentActions.Invoking(async () => await SendAsync(query)).Should().NotThrowAsync();
+        var item = wrapper.Subject.First();
+
+        // Assert
+        item.Should().NotBeNull();
+        item.Should().BeEquivalentTo(entity, options =>
+            options.ExcludingMissingMembers()
+        );
+    }
+}

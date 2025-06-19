@@ -65,7 +65,7 @@ public class {{ file.class_name }}Controller : ApiMediatorController
     /// Метод получения таблицы сущностей "{{ file.class_summary }}"
     /// </summary>
     /// <param name="sieveModel">Параметры для загрузки таблицы</param>
-    /// <returns>Объект результата загрузки грида DevExtreme со списком пользователей (IQueryable)</returns>
+    /// <returns>Данные для подстановки в таблицу</returns>
     [HttpPost]
     public async Task<GridData<GetGridVm>> GetGrid([FromBody] CustomSieveModel sieveModel)
         => await Mediator.Send(new {{ get_grid_namespace.last_name_part }}Query { SieveModel = sieveModel });
@@ -85,6 +85,6 @@ public class {{ file.class_name }}Controller : ApiMediatorController
     /// </summary>
     /// <returns>Список сущностей</returns>
     [HttpGet]
-    public async Task<IList<GetListVm>> GetList()
+    public async Task<List<GetListVm>> GetList()
         => await Mediator.Send(new {{ get_list_namespace.last_name_part }}Query());
 }

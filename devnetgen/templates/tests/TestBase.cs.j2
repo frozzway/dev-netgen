@@ -1,0 +1,24 @@
+using {{ entity.namespace.name }};
+
+namespace {{ target_namespace }};
+
+using static Testing;
+
+public class {{ entity.class_name }}Base : TestBase
+{
+    [SetUp]
+    public async Task Init()
+    {
+        AddFixture();
+    }
+
+    protected async Task<{{ entity.class_name }}> Create{{ entity.class_name }}OnDb()
+    {
+        var entity = Fixture.Build<{{ entity.class_name }}>()
+            .Create();
+
+        await AddAsync(entity);
+
+        return entity;
+    }
+}

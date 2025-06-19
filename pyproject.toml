@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "devnetgen"
-version = "0.2.8"
+version = "0.2.9"
 description = ""
 authors = ["Александр Окунев <a.okunev@mininform74.ru>"]
 readme = "README.md"

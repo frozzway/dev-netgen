@@ -12,5 +12,10 @@ from .sources.crud_constructors import (
 )
 
 from .tests.tests_constructors import (
-    CreateTestsConstructor
+    CreateEntityTestsConstructor,
+    UpdateEntityTestsConstructor,
+    DeleteEntityTestsConstructor,
+    GetEntityTestsConstructor,
+    GetEntitiesTestsConstructor,
+    GetEntityGridTestsConstructor
 )
