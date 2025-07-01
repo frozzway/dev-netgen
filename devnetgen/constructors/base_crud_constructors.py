@@ -74,7 +74,7 @@ class CRUDConstructor(Constructor):
             entity=entity,
             target_namespace=self.namespace.name,
             ientity=self.IEntity)
-        return File(self.entity.class_name, content)
+        return File(entity.class_name, content)
 
     def _create_models(self) -> list[File]:
         """
