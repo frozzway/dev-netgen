@@ -45,7 +45,9 @@ public class {{ command_handler }} : IRequestHandler<{{ command_name }}, {{ retu
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
-    {% if sieve %}private readonly ISieveService _sieveService;{% endif %}
+    {% if sieve %}
+    private readonly ISieveService _sieveService;
+    {% endif %}
 
     public {{ command_handler }}(IApplicationDbContext context, IMapper mapper{% if sieve %}, ISieveService sieveService{% endif %})
     {

@@ -45,19 +45,19 @@ public class {{ validator_name }} : AbstractValidator<{{ command_name }}>
 
                 {% endif %}
                 {% if not p.is_enum and not p.is_nullable %}
-                    i.RuleFor(j => j.{{ p.name }})
-                        .NotEmpty();
+                i.RuleFor(j => j.{{ p.name }})
+                    .NotEmpty();
                 {% elif p.is_enum %}
-                    {% if not p.is_nullable %}
+                {% if not p.is_nullable %}
+                i.RuleFor(j => j.{{ p.name }})
+                    .IsInEnum();
+                {% else %}
+                When(t => t.{{ p.name }} is not null, () =>
+                {
                     i.RuleFor(j => j.{{ p.name }})
                         .IsInEnum();
-                    {% else %}
-                    When(t => t.{{ p.name }} is not null, () =>
-                    {
-                        i.RuleFor(j => j.{{ p.name }})
-                            .IsInEnum();
-                    });
-                    {% endif %}
+                });
+                {% endif %}
                 {% endif %}
                 {% endfor %}
             });
