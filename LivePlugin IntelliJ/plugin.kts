@@ -69,7 +69,7 @@ class CrudAction: AnAction("Create CRUD") {
         saveAllChanges(event);
         val project = event.getProject()!!;
         val filepath = event.virtualFile!!.getPath();
-        val result = runShellCommand("dev-netgen", "all", filepath);
+        val result = runShellCommand("dev-netgen", "crud", filepath);
         show(result.stdout + result.stderr);
         refreshProject(project);
     }
@@ -85,7 +85,22 @@ class LegacyCrudAction: AnAction("Create CRUD: legacy controller") {
         saveAllChanges(event);
         val project = event.getProject()!!;
         val filepath = event.virtualFile!!.getPath();
-        val result = runShellCommand("dev-netgen", "all", filepath, "--legacy-controller");
+        val result = runShellCommand("dev-netgen", "crud", filepath, "--legacy-controller");
+        show(result.stdout + result.stderr);
+        refreshProject(project);
+    }
+}
+
+class TestsAction: AnAction("Create Tests") {
+    override fun update(event: AnActionEvent) {
+       domainUpdate(event)
+    }
+
+    override fun actionPerformed(event: AnActionEvent) {
+        saveAllChanges(event);
+        val project = event.getProject()!!;
+        val filepath = event.virtualFile!!.getPath();
+        val result = runShellCommand("dev-netgen", "tests", filepath);
         show(result.stdout + result.stderr);
         refreshProject(project);
     }
@@ -136,6 +151,11 @@ val crudLegacyAction = registerAction(
     action = LegacyCrudAction()
 )
 
+val testsAction = registerAction(
+    id = "Сгенерировать тесты для CRUD'а сущности",
+    action = TestsAction()
+)
+
 val domainSummaryAction = registerAction(
     id = "Сгенерировать <summary> в файле(-ах) Vm/Dto на основе сущности",
     action = DomainSummariesAction()
@@ -150,6 +170,7 @@ val actionGroup = CustomActionGroup().also { it.isPopup = true }
 
 actionGroup.add(crudAction)
 actionGroup.add(crudLegacyAction)
+actionGroup.add(testsAction)
 actionGroup.add(domainSummaryAction)
 actionGroup.add(applicationSummaryAction)
 
