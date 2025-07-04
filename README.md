@@ -61,12 +61,17 @@ pipx install devnetgen
 ПКМ по сущности - `NetGen: генерация` ->
 - `Сгенерировать CRUD`
 - `Сгенерировать CRUD на legacy controller`
+- `Сгенерировать тесты для CRUD'а сущности`
 - `Сгенерировать <summary> в файле(-ах) Vm/Dto на основе сущности`
 #### Через консоль
 ```shell
-dev-netgen all [path/to/entity.cs] --legacy-controller
+dev-netgen crud [path/to/entity.cs] [--legacy-controller]
 ```
 
 ```shell
 dev-netgen summary [path/to/class_or_entity.cs]
+```
+
+```shell
+dev-netgen tests [path/to/class_or_entity.cs]
 ```
